@@ -21,15 +21,16 @@ class WorkoutSetAdapter extends TypeAdapter<WorkoutSet> {
       weight: fields[1] as double,
       reps: fields[2] as int,
       timestamp: fields[3] as DateTime,
-      isCompleted: fields[4] as bool,
+      isCompleted: fields[4] as bool? ?? true,
       notes: fields[5] as String?,
+      isHardSet: fields[6] as bool? ?? false,
     );
   }
 
   @override
   void write(BinaryWriter writer, WorkoutSet obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -41,7 +42,9 @@ class WorkoutSetAdapter extends TypeAdapter<WorkoutSet> {
       ..writeByte(4)
       ..write(obj.isCompleted)
       ..writeByte(5)
-      ..write(obj.notes);
+      ..write(obj.notes)
+      ..writeByte(6)
+      ..write(obj.isHardSet);
   }
 
   @override

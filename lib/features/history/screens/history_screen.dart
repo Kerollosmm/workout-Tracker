@@ -40,8 +40,16 @@ class HistoryScreen extends StatelessWidget {
           dateFormat.format(workout.date),
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: Text(
-          '${workout.exercises.length} exercises • ${workout.totalSets} sets',
+        subtitle: Row(
+          children: [
+            Text('${workout.exercises.length} exercises • ${workout.totalSets} sets'),
+            Text(' • ${workout.hardSetCount} hard sets',
+              style: TextStyle(
+                color: Theme.of(context).primaryColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
         children: [
           // Exercises list
@@ -51,16 +59,17 @@ class HistoryScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Exercise name
+                  // Exercise name and info
                   Row(
                     children: [
                       Icon(Icons.fitness_center, size: 16),
                       SizedBox(width: 8),
-                      Text(
-                        exercise.exerciseName,
-                        style: TextStyle(fontWeight: FontWeight.w500),
+                      Expanded(
+                        child: Text(
+                          exercise.exerciseName,
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
                       ),
-                      Spacer(),
                       Text(
                         exercise.muscleGroup,
                         style: TextStyle(
@@ -82,21 +91,29 @@ class HistoryScreen extends StatelessWidget {
                             Expanded(flex: 1, child: Text('Set', style: TextStyle(fontSize: 12, color: Colors.grey))),
                             Expanded(flex: 2, child: Text('Weight', style: TextStyle(fontSize: 12, color: Colors.grey))),
                             Expanded(flex: 1, child: Text('Reps', style: TextStyle(fontSize: 12, color: Colors.grey))),
+                            Expanded(flex: 1, child: Text('Hard', style: TextStyle(fontSize: 12, color: Colors.grey))),
                           ],
                         ),
                         Divider(height: 8),
                         
                         // Set rows
-                        ...List.generate(exercise.sets.length, (setIndex) {
-                          final set = exercise.sets[setIndex];
+                        ...exercise.sets.asMap().entries.map((entry) {
+                          final setIndex = entry.key;
+                          final set = entry.value;
                           return Row(
                             children: [
                               Expanded(flex: 1, child: Text('${setIndex + 1}')),
                               Expanded(flex: 2, child: Text('${set.weight} $weightUnit')),
                               Expanded(flex: 1, child: Text('${set.reps}')),
+                              Expanded(
+                                flex: 1, 
+                                child: set.isHardSet 
+                                  ? Icon(Icons.fitness_center, size: 16, color: Theme.of(context).primaryColor)
+                                  : SizedBox(width: 16),
+                              ),
                             ],
                           );
-                        }),
+                        }).toList(),
                       ],
                     ),
                   ),

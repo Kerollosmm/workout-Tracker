@@ -8,6 +8,7 @@ import '../../../core/providers/workout_provider.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/analytics_provider.dart';
 import '../../../utils/formatters.dart';
+import '../providers/dashboard_provider.dart';
 
 class QuickStatsWidget extends StatelessWidget {
   final int totalSets;
@@ -24,10 +25,18 @@ class QuickStatsWidget extends StatelessWidget {
     final workoutProvider = Provider.of<WorkoutProvider>(context);
     final analyticsProvider = Provider.of<AnalyticsProvider>(context);
     final settingsProvider = Provider.of<SettingsProvider>(context);
-    
+    final dashboardProvider = Provider.of<DashboardProvider>(context);
+
     // Get most trained exercise info
     final mostTrainedExercise = analyticsProvider.getMostTrainedExercise();
+
+    // Calculate total volume for today (sets x reps x load)
+    final today = DateTime.now();
+    final totalVolume = _calculateTotalVolume(workoutProvider, today);
     
+    // Get calories burned today
+    final caloriesBurned = dashboardProvider.getDailyCaloriesBurned(today);
+
     return Column(
       children: [
         Row(
@@ -48,9 +57,24 @@ class QuickStatsWidget extends StatelessWidget {
               child: _buildStatCard(
                 context,
                 'Weight Lifted',
-                '${totalWeight.toStringAsFixed(1)} ${settingsProvider.weightUnit}',
+                '${totalVolume.toStringAsFixed(1)} ${settingsProvider.weightUnit}',
                 Icons.monitor_weight,
                 Colors.green,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: AppTheme.spacing_m),
+        Row(
+          children: [
+            // Calories Burned Card
+            Expanded(
+              child: _buildStatCard(
+                context,
+                'Calories Burned',
+                '${caloriesBurned.toInt()} cal',
+                Icons.local_fire_department,
+                Colors.orange,
               ),
             ),
           ],
@@ -61,7 +85,23 @@ class QuickStatsWidget extends StatelessWidget {
       ],
     );
   }
-  
+
+  // Helper to calculate total volume (sets x reps x load) for a given day
+  double _calculateTotalVolume(WorkoutProvider workoutProvider, DateTime day) {
+    final workouts = workoutProvider.workouts.where((w) =>
+      w.date.year == day.year && w.date.month == day.month && w.date.day == day.day
+    );
+    double total = 0;
+    for (final workout in workouts) {
+      for (final exercise in workout.exercises) {
+        for (final set in exercise.sets) {
+          total += set.weight * set.reps;
+        }
+      }
+    }
+    return total;
+  }
+
   Widget _buildStatCard(
     BuildContext context,
     String title,
@@ -72,34 +112,54 @@ class QuickStatsWidget extends StatelessWidget {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius_l),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Padding(
-        padding: EdgeInsets.all(AppTheme.spacing_m),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: iconColor, size: 18),
-                SizedBox(width: 8),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              iconColor.withOpacity(0.1),
+              Colors.transparent,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: iconColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 20, color: iconColor),
                   ),
-                ),
-              ],
-            ),
-            SizedBox(height: 8),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+                  SizedBox(width: 12),
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: Colors.grey[600],
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
+              SizedBox(height: 12),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

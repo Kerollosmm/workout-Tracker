@@ -8,52 +8,47 @@ class DarkTheme {
   static ThemeData get theme {
     return ThemeData.dark().copyWith(
       primaryColor: AppTheme.primaryColor,
-      colorScheme: ColorScheme.dark(
+      colorScheme: const ColorScheme.dark(
         primary: AppTheme.primaryColor,
-        secondary: AppTheme.accentColor,
+        secondary: AppTheme.secondaryColor,
         error: AppTheme.errorColor,
-        background: Color(0xFF121212),
-        surface: Color(0xFF1E1E1E),
+        background: AppTheme.backgroundDark,
+        surface: AppTheme.surfaceDark,
       ),
-      scaffoldBackgroundColor: Color(0xFF121212),
-      appBarTheme: AppBarTheme(
+      scaffoldBackgroundColor: AppTheme.backgroundDark,
+      appBarTheme: const AppBarTheme(
         elevation: 0,
-        backgroundColor: Color(0xFF1E1E1E),
-        foregroundColor: Colors.white,
+        backgroundColor: AppTheme.cardDark,
+        foregroundColor: AppTheme.textPrimaryDark,
         centerTitle: true,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           elevation: 0,
           backgroundColor: AppTheme.primaryColor,
-          foregroundColor: Colors.white,
+          foregroundColor: AppTheme.textPrimaryDark,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
+            borderRadius: BorderRadius.circular(AppTheme.borderRadius_xl),
           ),
-        ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppTheme.primaryColor,
-          side: BorderSide(color: AppTheme.primaryColor),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spacing_l,
+            vertical: AppTheme.spacing_m,
           ),
         ),
       ),
       cardTheme: CardTheme(
-        elevation: 2,
+        elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.borderRadius_l),
         ),
-        color: Color(0xFF1E1E1E),
+        color: AppTheme.cardDark,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: Color(0xFF2C2C2C),
-        selectedColor: AppTheme.primaryColor.withOpacity(0.3),
-        labelStyle: TextStyle(color: Colors.white),
-        secondaryLabelStyle: TextStyle(color: AppTheme.primaryColor),
-        padding: EdgeInsets.symmetric(
+        backgroundColor: AppTheme.surfaceDark,
+        selectedColor: AppTheme.primaryColor.withOpacity(0.2),
+        labelStyle: const TextStyle(color: AppTheme.textPrimaryDark),
+        secondaryLabelStyle: const TextStyle(color: AppTheme.primaryColor),
+        padding: const EdgeInsets.symmetric(
           horizontal: AppTheme.spacing_m,
           vertical: AppTheme.spacing_xs,
         ),
@@ -63,82 +58,84 @@ class DarkTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Color(0xFF2C2C2C),
+        fillColor: AppTheme.surfaceDark,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
-          borderSide: BorderSide(color: Color(0xFF3A3A3A)),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius_l),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
-          borderSide: BorderSide(color: Color(0xFF3A3A3A)),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius_l),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
-          borderSide: BorderSide(color: AppTheme.primaryColor),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius_l),
+          borderSide: const BorderSide(color: AppTheme.primaryColor),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
-          borderSide: BorderSide(color: AppTheme.errorColor),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius_l),
+          borderSide: const BorderSide(color: AppTheme.errorColor),
         ),
-        contentPadding: EdgeInsets.symmetric(
+        contentPadding: const EdgeInsets.symmetric(
           horizontal: AppTheme.spacing_m,
           vertical: AppTheme.spacing_m,
         ),
       ),
       textTheme: TextTheme(
         headlineMedium: AppTheme.headingStyle.copyWith(
-          color: Colors.white,
+          color: AppTheme.textPrimaryDark,
         ),
         titleLarge: AppTheme.subheadingStyle.copyWith(
-          color: Colors.white,
+          color: AppTheme.textPrimaryDark,
         ),
         bodyLarge: AppTheme.bodyStyle.copyWith(
-          color: Colors.white,
+          color: AppTheme.textPrimaryDark,
         ),
-        bodyMedium: TextStyle(
-          fontSize: 14,
-          color: Colors.white70,
+        bodyMedium: AppTheme.captionStyle.copyWith(
+          color: AppTheme.textSecondaryDark,
         ),
-        labelLarge: TextStyle(
+        labelLarge: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
-          color: Colors.white,
+          color: AppTheme.textPrimaryDark,
+          letterSpacing: -0.2,
         ),
       ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: Color(0xFF1E1E1E),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: AppTheme.cardDark,
         selectedItemColor: AppTheme.primaryColor,
-        unselectedItemColor: Colors.grey,
-        elevation: 8,
+        unselectedItemColor: AppTheme.textSecondaryDark,
+        elevation: 0,
         type: BottomNavigationBarType.fixed,
       ),
-      dividerTheme: DividerThemeData(
+      dividerTheme: const DividerThemeData(
         thickness: 1,
-        color: Color(0xFF2C2C2C),
+        color: AppTheme.surfaceDark,
       ),
       checkboxTheme: CheckboxThemeData(
         fillColor: MaterialStateProperty.resolveWith((states) {
           if (states.contains(MaterialState.selected)) {
             return AppTheme.primaryColor;
           }
-          return null;
+          return AppTheme.textSecondaryDark;
         }),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius_s),
+        ),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: MaterialStateProperty.resolveWith((states) {
           if (states.contains(MaterialState.selected)) {
             return AppTheme.primaryColor;
           }
-          return null;
+          return AppTheme.textSecondaryDark;
         }),
         trackColor: MaterialStateProperty.resolveWith((states) {
           if (states.contains(MaterialState.selected)) {
-            return AppTheme.primaryColor.withOpacity(0.5);
+            return AppTheme.primaryColor.withOpacity(0.3);
           }
-          return null;
+          return AppTheme.surfaceDark;
         }),
       ),
     );
   }
 }
-

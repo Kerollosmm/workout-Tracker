@@ -37,12 +37,12 @@ class PerformanceChartProgress extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: Text(
-            title, // Removed localization due to missing service
+            title,
             style: theme.textTheme.titleLarge,
             textAlign: TextAlign.center,
           ),
         ),
-        _buildChartContainer(theme, chartColor, settings), // Removed isRTL
+        _buildChartContainer(theme, chartColor, settings),
       ],
     );
   }
@@ -57,7 +57,7 @@ class PerformanceChartProgress extends StatelessWidget {
       child: data.isEmpty
           ? Center(
               child: Text(
-                'No data available', // Removed localization due to missing service
+                'No data available',
                 style: theme.textTheme.bodyLarge,
               ),
             )
@@ -67,21 +67,21 @@ class PerformanceChartProgress extends StatelessWidget {
                   show: true,
                   drawVerticalLine: false,
                   getDrawingHorizontalLine: (value) => FlLine(
-                    color: theme.dividerColor,
-                    strokeWidth: 0.5,
+                    color: theme.brightness == Brightness.dark 
+                      ? Colors.grey[800]! 
+                      : Colors.grey[300]!,
+                    strokeWidth: 1,
                   ),
                 ),
-                titlesData: _buildTitlesData(settings), // Removed isRTL
-                borderData: FlBorderData(
-                  show: true,
-                  border: Border.all(color: theme.dividerColor),
-                ),
+                titlesData: _buildTitlesData(settings),
+                borderData: FlBorderData(show: false),
                 minX: 0,
                 maxX: data.length > 1 ? (data.length - 1).toDouble() : 1,
                 minY: 0,
                 maxY: _calculateMaxY(),
                 lineBarsData: _buildChartLines(chartColor, theme),
                 lineTouchData: _buildTouchData(settings),
+                backgroundColor: theme.cardColor,
               ),
             ),
     );
@@ -95,49 +95,61 @@ class PerformanceChartProgress extends StatelessWidget {
       bottomTitles: AxisTitles(
         sideTitles: SideTitles(
           showTitles: true,
-          reservedSize: 24,
-          getTitlesWidget: (value, meta) => _buildDateTitle(value, meta), // Added meta argument
+          reservedSize: 32,
+          interval: 1,
+          getTitlesWidget: (value, meta) => _buildDateTitle(value, meta),
         ),
       ),
       leftTitles: AxisTitles(
         sideTitles: SideTitles(
           showTitles: true,
-          reservedSize: 42,
-          getTitlesWidget: (value, meta) => _buildValueTitle(value, settings, meta), // Added meta argument
+          reservedSize: 45,
+          interval: _calculateMaxY() / 5,
+          getTitlesWidget: (value, meta) => _buildValueTitle(value, settings, meta),
         ),
       ),
     );
   }
 
-  Widget _buildDateTitle(double value, TitleMeta meta) { // Added meta parameter
+  Widget _buildDateTitle(double value, TitleMeta meta) {
     final index = value.toInt();
     if (index < 0 || index >= data.length) return const SizedBox.shrink();
     
     final date = data[index]['date'] as DateTime;
-    return SideTitleWidget(
-      // axisSide: AxisSide.bottom, // Removed due to undefined parameter
-      meta: meta,
-      child: Text(
-        DateFormat('MMM d').format(date),
-        style: const TextStyle(fontSize: 10),
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: SideTitleWidget(
+        meta: meta,
+        child: Text(
+          DateFormat('MMM d').format(date),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: AppTheme.textSecondaryLight.withOpacity(0.7),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildValueTitle(double value, SettingsProvider settings, TitleMeta meta) { // Added meta parameter
+  Widget _buildValueTitle(double value, SettingsProvider settings, TitleMeta meta) {
     return SideTitleWidget(
-      // axisSide: AxisSide.left, // Removed due to undefined parameter
       meta: meta,
       child: Text(
-        '${value.toStringAsFixed(settings.weightUnit == 'kg' ? 1 : 0)} $valueUnit',
-        style: const TextStyle(fontSize: 10),
+        '${value.toStringAsFixed(settings.weightUnit == 'kg' ? 1 : 0)}$valueUnit',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: AppTheme.textSecondaryLight.withOpacity(0.7),
+        ),
       ),
     );
   }
 
   List<LineChartBarData> _buildChartLines(Color chartColor, ThemeData theme) {
     final spots = data.asMap().entries.map((entry) {
-      return FlSpot(entry.key.toDouble(), entry.value['value'] as double);
+      final value = (entry.value['value'] as num).toDouble();
+      return FlSpot(entry.key.toDouble(), value);
     }).toList();
 
     final lines = [
@@ -145,22 +157,25 @@ class PerformanceChartProgress extends StatelessWidget {
         spots: spots,
         isCurved: true,
         color: chartColor,
-        barWidth: 3,
+        barWidth: 2.5,
         isStrokeCapRound: true,
         dotData: FlDotData(
-          show: data.length < 10,
+          show: true,
           getDotPainter: (spot, percent, chart, index) => FlDotCirclePainter(
-            radius: 3,
-            color: chartColor,
-            strokeWidth: 1,
-            strokeColor: theme.cardColor,
+            radius: 4,
+            color: theme.cardColor,
+            strokeWidth: 2,
+            strokeColor: chartColor,
           ),
         ),
         belowBarData: BarAreaData(
           show: true,
           gradient: LinearGradient(
-            colors: [chartColor.withOpacity(0.3), chartColor.withOpacity(0.1)],
-            stops: const [0.5, 1.0],
+            colors: [
+              chartColor.withOpacity(0.3),
+              chartColor.withOpacity(0.05),
+            ],
+            stops: const [0.0, 0.8],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -170,12 +185,16 @@ class PerformanceChartProgress extends StatelessWidget {
 
     if (showAverageLine) {
       final average = data.isEmpty 
-          ? 0 
-          : data.map((e) => e['value']).reduce((a, b) => a + b) / data.length;
+          ? 0.0 
+          : data.map((e) => (e['value'] as num).toDouble())
+              .reduce((a, b) => a + b) / data.length;
       
       lines.add(
         LineChartBarData(
-          spots: [FlSpot(0, average), FlSpot(data.length.toDouble() - 1, average)],
+          spots: [
+            FlSpot(0, average),
+            FlSpot((data.length - 1).toDouble(), average)
+          ],
           color: chartColor.withOpacity(0.5),
           barWidth: 1,
           dashArray: [5, 5],
@@ -192,14 +211,22 @@ class PerformanceChartProgress extends StatelessWidget {
     return LineTouchData(
       handleBuiltInTouches: true,
       touchTooltipData: LineTouchTooltipData(
-        // tooltipBgColor: Colors.grey[800]!, // Removed to avoid errors
+        tooltipBorder: BorderSide(color: AppTheme.primaryColor.withOpacity(0.1)),
+        tooltipRoundedRadius: 8,
+        tooltipPadding: const EdgeInsets.all(8),
+        fitInsideHorizontally: true,
+        fitInsideVertically: true,
         getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
           final index = spot.x.toInt();
           final date = data[index]['date'] as DateTime;
           return LineTooltipItem(
             '${DateFormat.yMMMd().format(date)}\n'
-            '${spot.y.toStringAsFixed(settings.weightUnit == 'kg' ? 1 : 0)} $valueUnit',
-            TextStyle(color: AppTheme.darkTheme.primaryColor),
+            '${spot.y.toStringAsFixed(settings.weightUnit == 'kg' ? 1 : 0)}$valueUnit',
+            TextStyle(
+              color: AppTheme.textPrimaryLight,
+              fontWeight: FontWeight.w500,
+              fontSize: 12,
+            ),
           );
         }).toList(),
       ),

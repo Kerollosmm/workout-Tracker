@@ -15,7 +15,7 @@ class Workout extends HiveObject {
   List<WorkoutExercise> exercises;
   
   @HiveField(3)
-  int duration; // in seconds
+  int duration;
   
   @HiveField(4)
   String? notes;
@@ -33,7 +33,9 @@ class Workout extends HiveObject {
     double total = 0;
     for (final exercise in exercises) {
       for (final set in exercise.sets) {
-        total += set.weight * set.reps;
+        if (set.weight > 0 && set.reps > 0) {
+          total += set.weight * set.reps;
+        }
       }
     }
     return total;
@@ -42,7 +44,31 @@ class Workout extends HiveObject {
   int get totalSets {
     int total = 0;
     for (final exercise in exercises) {
-      total += exercise.sets.length;
+      total += exercise.sets.where((set) => 
+        set.weight > 0 && set.reps > 0
+      ).length;
+    }
+    return total;
+  }
+
+  double get effectiveWeightLifted {
+    double total = 0;
+    for (final exercise in exercises) {
+      for (final set in exercise.sets) {
+        if (set.isHardSet && set.weight > 0 && set.reps > 0) {
+          total += set.weight * set.reps;
+        }
+      }
+    }
+    return total;
+  }
+  
+  int get hardSetCount {
+    int total = 0;
+    for (final exercise in exercises) {
+      total += exercise.sets.where((set) => 
+        set.isHardSet && set.weight > 0 && set.reps > 0
+      ).length;
     }
     return total;
   }
@@ -57,7 +83,7 @@ class Workout extends HiveObject {
     return Workout(
       id: id ?? this.id,
       date: date ?? this.date,
-      exercises: exercises ?? this.exercises.map((e) => e.copyWith()).toList(),
+      exercises: exercises ?? List.from(this.exercises),
       duration: duration ?? this.duration,
       notes: notes ?? this.notes,
     );

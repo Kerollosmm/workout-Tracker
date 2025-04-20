@@ -7,80 +7,174 @@ import '../models/workout_set.dart';
 class WorkoutProvider with ChangeNotifier {
   final Box<Workout> _workoutsBox = Hive.box<Workout>('workouts');
   final uuid = Uuid();
-  
+
   List<Workout> get workouts {
     // Return sorted workouts by date (newest first)
     final workoutsList = _workoutsBox.values.toList();
     workoutsList.sort((a, b) => b.date.compareTo(a.date));
     return workoutsList;
   }
-  
-  List<Workout> getWorkoutsByDateRange(DateTime start, DateTime end) {
-    return workouts.where((w) => 
-      w.date.isAfter(start) && w.date.isBefore(end)
-    ).toList();
-  }
-  
-  Workout? getWorkoutById(String id) {
-    try {
-      return _workoutsBox.values.firstWhere((w) => w.id == id);
-    } catch (e) {
-      return null;
-    }
-  }
-  
-  Future<void> addWorkout(Workout workout) async {
-    await _workoutsBox.add(workout);
-    notifyListeners();
-  }
-  
-  Future<void> updateWorkout(Workout workout) async {
-    final index = _workoutsBox.values.toList().indexWhere((w) => w.id == workout.id);
-    if (index != -1) {
-      await _workoutsBox.putAt(index, workout);
-      notifyListeners();
-    }
-  }
-  
-  Future<void> deleteWorkout(String id) async {
-    final index = _workoutsBox.values.toList().indexWhere((w) => w.id == id);
-    if (index != -1) {
-      await _workoutsBox.deleteAt(index);
-      notifyListeners();
-    }
-  }
-  
-  // Stats & Analytics
+
   double getTotalWeightLifted(DateTime? date) {
-    if (date == null) {
-      return workouts.fold(0, (sum, workout) => sum + workout.totalWeightLifted);
+    double total = 0;
+    
+    final relevantWorkouts = date != null 
+        ? _getWorkoutsForDate(date)
+        : workouts;
+
+    for (final workout in relevantWorkouts) {
+      total += _calculateWorkoutWeight(workout);
     }
     
-    // For specific date
-    final startOfDay = DateTime(date.year, date.month, date.day);
-    final endOfDay = startOfDay.add(Duration(days: 1));
-    final dayWorkouts = workouts.where((w) => 
-      w.date.isAfter(startOfDay) && w.date.isBefore(endOfDay)
-    ).toList();
-    
-    return dayWorkouts.fold(0, (sum, workout) => sum + workout.totalWeightLifted);
+    return total;
   }
-  
+
+  double getEffectiveWeightLifted(DateTime? date) {
+    double total = 0;
+    
+    final relevantWorkouts = date != null 
+        ? _getWorkoutsForDate(date)
+        : workouts;
+
+    for (final workout in relevantWorkouts) {
+      total += _calculateEffectiveWeight(workout);
+    }
+    
+    return total;
+  }
+
   int getTotalSets(DateTime? date) {
-    if (date == null) {
-      return workouts.fold(0, (sum, workout) => sum + workout.totalSets);
+    int total = 0;
+    
+    final relevantWorkouts = date != null 
+        ? _getWorkoutsForDate(date)
+        : workouts;
+
+    for (final workout in relevantWorkouts) {
+      total += _calculateTotalSets(workout);
     }
     
-    // For specific date
-    final startOfDay = DateTime(date.year, date.month, date.day);
-    final endOfDay = startOfDay.add(Duration(days: 1));
-    final dayWorkouts = workouts.where((w) => 
-      w.date.isAfter(startOfDay) && w.date.isBefore(endOfDay)
-    ).toList();
-    
-    return dayWorkouts.fold(0, (sum, workout) => sum + workout.totalSets);
+    return total;
   }
-  
+
+  int getHardSetCount(DateTime? date) {
+    int total = 0;
+    
+    final relevantWorkouts = date != null 
+        ? _getWorkoutsForDate(date)
+        : workouts;
+
+    for (final workout in relevantWorkouts) {
+      total += _calculateHardSets(workout);
+    }
+    
+    return total;
+  }
+
+  // Private helper methods for calculations
+  List<Workout> _getWorkoutsForDate(DateTime date) {
+    final dayStart = DateTime(date.year, date.month, date.day);
+    final dayEnd = dayStart.add(Duration(days: 1));
+    
+    return workouts.where((w) =>
+      w.date.isAfter(dayStart.subtract(Duration(seconds: 1))) &&
+      w.date.isBefore(dayEnd)
+    ).toList();
+  }
+
+  double _calculateWorkoutWeight(Workout workout) {
+    double total = 0;
+    for (final exercise in workout.exercises) {
+      for (final set in exercise.sets) {
+        if (set.weight > 0 && set.reps > 0) {
+          total += set.weight * set.reps;
+        }
+      }
+    }
+    return total;
+  }
+
+  double _calculateEffectiveWeight(Workout workout) {
+    double total = 0;
+    for (final exercise in workout.exercises) {
+      for (final set in exercise.sets) {
+        if (set.isHardSet) {
+          total += set.weight * set.reps;
+        }
+      }
+    }
+    return total;
+  }
+
+  int _calculateTotalSets(Workout workout) {
+    int total = 0;
+    for (final exercise in workout.exercises) {
+      total += exercise.sets.length;
+    }
+    return total;
+  }
+
+  int _calculateHardSets(Workout workout) {
+    int total = 0;
+    for (final exercise in workout.exercises) {
+      total += exercise.sets.where((set) => set.isHardSet).length;
+    }
+    return total;
+  }
+
+  // CRUD operations
+  Future<void> addWorkout(Workout workout) async {
+    try {
+      await _workoutsBox.add(workout);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error adding workout: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateWorkout(Workout workout) async {
+    try {
+      // Find the workout in the box
+      final workoutInBox = _workoutsBox.values.firstWhere(
+        (w) => w.id == workout.id,
+        orElse: () => throw Exception('Workout not found'),
+      );
+      
+      // Get the key for this workout
+      final key = workoutInBox.key;
+      
+      // Update the workout at this key
+      await _workoutsBox.put(key, workout);
+      
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error updating workout: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteWorkout(String id) async {
+    try {
+      // Find the workout in the box
+      final workoutInBox = _workoutsBox.values.firstWhere(
+        (w) => w.id == id,
+        orElse: () => throw Exception('Workout not found'),
+      );
+      
+      // Get the key for this workout
+      final key = workoutInBox.key;
+      
+      // Delete the workout using its key
+      await _workoutsBox.delete(key);
+      
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error deleting workout: $e');
+      rethrow;
+    }
+  }
+
   // Get exercise performance data for charts
   List<Map<String, dynamic>> getExerciseProgressData(String exerciseId, {int limit = 10}) {
     final data = <Map<String, dynamic>>[];

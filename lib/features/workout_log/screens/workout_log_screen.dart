@@ -8,7 +8,6 @@ import '../../../core/models/workout_set.dart';
 import '../../../core/providers/exercise_provider.dart';
 import '../../../core/providers/workout_provider.dart';
 import '../widgets/exercise_selector.dart';
-import '../widgets/workout_form.dart';
 import '../widgets/set_input_card.dart';
 
 class WorkoutLogScreen extends StatefulWidget {
@@ -64,23 +63,31 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
 
   void _removeSet(int exerciseIndex, int setIndex) {
     setState(() {
+      if (exerciseIndex >= selectedExercises.length ||
+          setIndex >= selectedExercises[exerciseIndex].sets.length) {
+        return;
+      }
       selectedExercises[exerciseIndex].sets.removeAt(setIndex);
     });
   }
 
   void _addSet(int exerciseIndex) {
     setState(() {
-      final newSet = WorkoutSet(
-        id: uuid.v4(),
-        weight: 0,
-        reps: 0,
-        timestamp: DateTime.now(),
+      if (exerciseIndex >= selectedExercises.length) return;
+
+      selectedExercises[exerciseIndex].sets.add(
+        WorkoutSet(
+          id: uuid.v4(),
+          weight: 0,
+          reps: 0,
+          timestamp: DateTime.now(),
+          isHardSet: false,
+        ),
       );
-      selectedExercises[exerciseIndex].sets.add(newSet);
     });
   }
 
-  void _saveWorkout() async {
+  Future<void> _saveWorkout() async {
     if (selectedExercises.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please add at least one exercise')),
@@ -113,7 +120,7 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     }
 
     final workout = Workout(
-      id: uuid.v4(),
+      id: _existingWorkout?.id ?? uuid.v4(),
       date: workoutDate,
       exercises: selectedExercises,
       notes: notes,
@@ -123,21 +130,49 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
       context,
       listen: false,
     );
-    await workoutProvider.addWorkout(workout);
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Workout saved successfully')));
-    Navigator.pop(context);
+    try {
+      if (_existingWorkout != null) {
+        await workoutProvider.updateWorkout(workout);
+      } else {
+        await workoutProvider.addWorkout(workout);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Workout saved successfully')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving workout: $e')),
+        );
+      }
+    }
   }
 
-  void _updateSet(int exerciseIndex, int setIndex, double weight, int reps) {
+  void _updateSet(
+    int exerciseIndex,
+    int setIndex, {
+    double? weight,
+    int? reps,
+    bool? isHardSet,
+  }) {
     setState(() {
+      if (exerciseIndex >= selectedExercises.length ||
+          setIndex >= selectedExercises[exerciseIndex].sets.length) {
+        return;
+      }
+
+      final currentSet = selectedExercises[exerciseIndex].sets[setIndex];
       selectedExercises[exerciseIndex].sets[setIndex] = WorkoutSet(
-        id: selectedExercises[exerciseIndex].sets[setIndex].id,
-        weight: weight,
-        reps: reps,
+        id: currentSet.id,
+        weight: weight ?? currentSet.weight,
+        reps: reps ?? currentSet.reps,
         timestamp: DateTime.now(),
+        isHardSet: isHardSet ?? currentSet.isHardSet,
       );
     });
   }
@@ -179,6 +214,7 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
                           weight: s.weight,
                           reps: s.reps,
                           timestamp: s.timestamp,
+                          isHardSet: s.isHardSet,
                         ),
                       )
                       .toList(),
@@ -314,6 +350,15 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
                                         ),
                                       ),
                                     ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'Hard Set',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
                                     SizedBox(width: 48),
                                   ],
                                 ),
@@ -325,20 +370,26 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
                                   setNumber: setIndex + 1,
                                   weight: exercise.sets[setIndex].weight,
                                   reps: exercise.sets[setIndex].reps,
+                                  isHardSet: exercise.sets[setIndex].isHardSet,
                                   onWeightChanged: (value) {
                                     _updateSet(
                                       exerciseIndex,
                                       setIndex,
-                                      value,
-                                      exercise.sets[setIndex].reps,
+                                      weight: value,
                                     );
                                   },
                                   onRepsChanged: (value) {
                                     _updateSet(
                                       exerciseIndex,
                                       setIndex,
-                                      exercise.sets[setIndex].weight,
-                                      value,
+                                      reps: value,
+                                    );
+                                  },
+                                  onHardSetChanged: (value) {
+                                    _updateSet(
+                                      exerciseIndex,
+                                      setIndex,
+                                      isHardSet: value,
                                     );
                                   },
                                   onDelete: () =>

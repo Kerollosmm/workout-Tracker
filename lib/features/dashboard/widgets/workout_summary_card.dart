@@ -1,5 +1,3 @@
-// lib/features/dashboard/widgets/workout_summary_card.dart
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:workout_tracker/config/constants/app_constants.dart';
@@ -21,182 +19,185 @@ class WorkoutSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settingsProvider = Provider.of<SettingsProvider>(context);
-    final dateFormat = DateFormat('EEE, MMM d');
+    final dateFormat = DateFormat('MMM dd, yyyy');
     final timeFormat = DateFormat('h:mm a');
-    
-    // Calculate summary stats
+
     final totalExercises = workout.exercises.length;
     final totalSets = workout.totalSets;
     final totalWeightLifted = workout.totalWeightLifted;
-    
-    // Find primary muscle group (most trained in this workout)
+
     final muscleGroupCounts = <String, int>{};
     for (final exercise in workout.exercises) {
-      if (muscleGroupCounts.containsKey(exercise.muscleGroup)) {
-        muscleGroupCounts[exercise.muscleGroup] = muscleGroupCounts[exercise.muscleGroup]! + 1;
-      } else {
-        muscleGroupCounts[exercise.muscleGroup] = 1;
-      }
+      muscleGroupCounts[exercise.muscleGroup] =
+          (muscleGroupCounts[exercise.muscleGroup] ?? 0) + 1;
     }
-    
-    final primaryMuscleGroup = muscleGroupCounts.entries.isEmpty 
+
+    final primaryMuscleGroup = muscleGroupCounts.isEmpty
         ? 'N/A'
         : muscleGroupCounts.entries
             .reduce((a, b) => a.value > b.value ? a : b)
             .key;
-            
+
     final muscleGroupColor = AppTheme.getColorForMuscleGroup(primaryMuscleGroup);
-    
+
     return Card(
-      elevation: 2,
-      margin: EdgeInsets.symmetric(vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+      elevation: 1.5,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius_l),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius_l),
-        child: Padding(
-          padding: EdgeInsets.all(AppTheme.spacing_m),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Date and muscle group row
-              Row(
+        borderRadius: BorderRadius.circular(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            /// Header
+            Container(
+              decoration: BoxDecoration(
+                color: muscleGroupColor.withOpacity(0.08),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(18),
+                  topRight: Radius.circular(18),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                      SizedBox(width: 8),
+                      const Icon(Icons.calendar_today_outlined, size: 18),
+                      const SizedBox(width: 6),
                       Text(
                         dateFormat.format(workout.date),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                       ),
                     ],
                   ),
-                  Chip(
-                    label: Text(
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: muscleGroupColor,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
                       primaryMuscleGroup,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
-                    backgroundColor: muscleGroupColor,
-                    padding: EdgeInsets.zero,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ],
               ),
-              SizedBox(height: AppTheme.spacing_s),
-              
-              // Time row
-              Row(
+            ),
+
+            /// Content
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                  SizedBox(width: 8),
-                  Text(
-                    timeFormat.format(workout.date),
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-              SizedBox(height: AppTheme.spacing_m),
-              
-              // Stats row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildStatColumn(
-                    context, 
-                    '$totalExercises', 
-                    'Exercises',
-                  ),
-                  _buildStatColumn(
-                    context, 
-                    '$totalSets', 
-                    'Sets',
-                  ),
-                  _buildStatColumn(
-                    context, 
-                    '${totalWeightLifted.toStringAsFixed(0)}', 
-                    settingsProvider.weightUnit,
-                  ),
-                ],
-              ),
-              
-              // Exercise list preview (first 2 only)
-              if (workout.exercises.isNotEmpty) ...[
-                SizedBox(height: AppTheme.spacing_m),
-                Divider(height: 1),
-                SizedBox(height: AppTheme.spacing_s),
-                ...workout.exercises.take(2).map((exercise) => Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
+                  /// Time
+                  Row(
                     children: [
-                      Icon(Icons.fitness_center, size: 14, color: Colors.grey[600]),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          exercise.exerciseName,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
+                      const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                      const SizedBox(width: 6),
                       Text(
-                        '${exercise.sets.length} sets',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
+                        timeFormat.format(workout.date),
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
                   ),
-                )),
-                
-                // Show indicator if more exercises are present
-                if (workout.exercises.length > 2)
-                  Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Text(
-                      '+ ${workout.exercises.length - 2} more exercises',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).primaryColor,
-                        fontWeight: FontWeight.w500,
+                  const SizedBox(height: 12),
+
+                  /// Stats
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildStat(context, '$totalExercises', 'Exercises'),
+                      _buildStat(context, '$totalSets', 'Sets'),
+                      _buildStat(context,
+                          '${totalWeightLifted.toStringAsFixed(0)}', settingsProvider.weightUnit),
+                    ],
+                  ),
+
+                  /// Exercises List Preview
+                  if (workout.exercises.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Divider(color: Colors.grey[300], height: 1),
+                    const SizedBox(height: 10),
+                    ...workout.exercises.take(2).map(
+                      (exercise) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.fitness_center,
+                                size: 16, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                exercise.exerciseName,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Text(
+                              '${exercise.sets.length} sets',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-              ],
-            ],
-          ),
+                    if (workout.exercises.length > 2)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '+ ${workout.exercises.length - 2} more exercises',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).primaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
-  
-  Widget _buildStatColumn(BuildContext context, String value, String label) {
+
+  Widget _buildStat(BuildContext context, String value, String label) {
     return Column(
       children: [
         Text(
           value,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
         ),
+        const SizedBox(height: 4),
         Text(
           label,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.grey[600],
+                fontSize: 11,
+              ),
         ),
       ],
     );

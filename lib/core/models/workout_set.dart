@@ -22,6 +22,9 @@ class WorkoutSet extends HiveObject {
   @HiveField(5)
   String? notes;
   
+  @HiveField(6)
+  bool isHardSet;
+  
   WorkoutSet({
     required this.id,
     required this.weight,
@@ -29,11 +32,13 @@ class WorkoutSet extends HiveObject {
     required this.timestamp,
     this.isCompleted = true,
     this.notes,
+    this.isHardSet = false,
   });
 
   WorkoutSet copyWith({
     double? weight,
     int? reps,
+    bool? isHardSet,
   }) {
     return WorkoutSet(
       id: this.id,
@@ -42,6 +47,7 @@ class WorkoutSet extends HiveObject {
       timestamp: this.timestamp,
       isCompleted: this.isCompleted,
       notes: this.notes,
+      isHardSet: isHardSet ?? this.isHardSet,
     );
   }
 }

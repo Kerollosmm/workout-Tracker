@@ -6,8 +6,10 @@ class SetInputCard extends StatelessWidget {
   final int setNumber;
   final double weight;
   final int reps;
+  final bool isHardSet;
   final Function(double) onWeightChanged;
   final Function(int) onRepsChanged;
+  final Function(bool) onHardSetChanged;
   final VoidCallback onDelete;
 
   const SetInputCard({
@@ -15,8 +17,10 @@ class SetInputCard extends StatelessWidget {
     required this.setNumber,
     required this.weight,
     required this.reps,
+    required this.isHardSet,
     required this.onWeightChanged,
     required this.onRepsChanged,
+    required this.onHardSetChanged,
     required this.onDelete,
   }) : super(key: key);
 
@@ -80,11 +84,48 @@ class SetInputCard extends StatelessWidget {
               ),
             ),
           ),
+
+          // Hard set toggle
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: InkWell(
+              onTap: () => onHardSetChanged(!isHardSet),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isHardSet ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: isHardSet ? Theme.of(context).primaryColor : Colors.grey,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.fitness_center,
+                      size: 16,
+                      color: isHardSet ? Theme.of(context).primaryColor : Colors.grey,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Hard',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isHardSet ? Theme.of(context).primaryColor : Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
           
           // Delete button
           IconButton(
-            icon: Icon(Icons.delete, color: Colors.red[300], size: 20),
+            icon: Icon(Icons.remove_circle_outline, color: Colors.red),
             onPressed: onDelete,
+            iconSize: 20,
             padding: EdgeInsets.zero,
             constraints: BoxConstraints(),
           ),

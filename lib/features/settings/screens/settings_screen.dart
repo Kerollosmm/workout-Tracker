@@ -1,13 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/notification_service.dart';
-import '../widgets/language_selector.dart';
 import '../widgets/units_selector.dart';
 import '../widgets/theme_selector.dart';
 
 class SettingsScreen extends StatelessWidget {
+  Future<bool> _showResetConfirmationDialog(BuildContext context) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Reset All Data'),
+          content: Text(
+            'This will delete all your workouts, exercises, and reset all settings. This action cannot be undone. Are you sure you want to continue?'
+          ),
+          actions: [
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: Text('Reset'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
+    ) ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final settingsProvider = Provider.of<SettingsProvider>(context);
@@ -48,6 +73,42 @@ class SettingsScreen extends StatelessWidget {
             context,
             title: 'Workout Reminders',
             child: _buildNotificationSettings(context, settingsProvider),
+          ),
+          
+          // Data Management Section
+          _buildSettingsSection(
+            context,
+            title: 'Data Management',
+            child: ListTile(
+              title: Text('Reset All Data'),
+              subtitle: Text('Delete all workouts and settings'),
+              leading: Icon(Icons.restore, color: Colors.red),
+              onTap: () async {
+                final confirmed = await _showResetConfirmationDialog(context);
+                if (confirmed && context.mounted) {
+                  try {
+                    await settingsProvider.resetAllData();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('All data has been reset'))
+                      );
+                      // Navigate back to dashboard to refresh the app state
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        '/',
+                        (route) => false,
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error resetting data: $e'))
+                      );
+                    }
+                  }
+                }
+              },
+            ),
           ),
           
           // App Info

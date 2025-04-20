@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:workout_tracker/config/constants/app_constants.dart';
-import '../../../config/themes/app_theme.dart';
 import '../../../core/providers/settings_provider.dart';
+import '../../../core/providers/workout_provider.dart';
 import '../providers/dashboard_provider.dart';
 
 class ProgressChartWidget extends StatefulWidget {
@@ -13,165 +12,138 @@ class ProgressChartWidget extends StatefulWidget {
 }
 
 class _ProgressChartWidgetState extends State<ProgressChartWidget> {
-  bool _showWeight = true; // Toggle between weight and sets
-
+  String _selectedMetric = 'volume';
+  
   @override
   Widget build(BuildContext context) {
     final dashboardProvider = Provider.of<DashboardProvider>(context);
     final settingsProvider = Provider.of<SettingsProvider>(context);
-    final theme = Theme.of(context);
-    
-    // Get data for the current week
+    final workoutProvider = Provider.of<WorkoutProvider>(context);
+
     final weekData = dashboardProvider.getWeeklyChartData();
     
-    // Create spots for the chart based on selected metric
-    final List<FlSpot> spots = weekData.asMap().entries.map((entry) {
-      final index = entry.key.toDouble();
-      final value = _showWeight 
-          ? entry.value['totalWeight'] as double
-          : (entry.value['totalSets'] as int).toDouble();
-      return FlSpot(index, value);
-    }).toList();
+    final spots = _getSpots(weekData, workoutProvider);
+    final spots2 = _getSecondarySpots(weekData, workoutProvider);
     
-    // Calculate maximum Y value to set chart scale
-    double maxY = 0;
-    if (spots.isNotEmpty) {
-      maxY = spots.map((spot) => spot.y).reduce((a, b) => a > b ? a : b);
-    }
-    // Add some padding to the max Y value and ensure minimum of 10
-    maxY = maxY > 0 ? (maxY * 1.2).ceilToDouble() : 10;
-    
-    return Container(
-      height: 220,
+    double maxY = spots.isNotEmpty
+        ? spots.map((spot) => spot.y).reduce((a, b) => a > b ? a : b) * 1.2
+        : 10;
+
+    return SizedBox(
+      height: 300,
       child: Card(
-        elevation: 4,
+        elevation: 2,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.borderRadius_l),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: AppTheme.spacing_m,
-            vertical: AppTheme.spacing_s,
-          ),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Chart title and toggle button
+              // Header with metric selector
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    _showWeight 
-                        ? 'Weight Lifted This Week (${settingsProvider.weightUnit})' 
-                        : 'Sets Completed This Week',
-                    style: Theme.of(context).textTheme.titleSmall,
+                    'Performance Trend',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                   ),
-                  IconButton(
-                    icon: Icon(_showWeight ? Icons.repeat : Icons.fitness_center),
-                    onPressed: () {
-                      setState(() {
-                        _showWeight = !_showWeight;
-                      });
+                  DropdownButton<String>(
+                    value: _selectedMetric,
+                    underline: Container(),
+                    items: const [
+                      DropdownMenuItem(value: 'volume', child: Text('Volume')),
+                      DropdownMenuItem(value: 'tonnage', child: Text('Tonnage')),
+                      DropdownMenuItem(value: 'intensity', child: Text('Intensity')),
+                      DropdownMenuItem(value: 'density', child: Text('Density')),
+                      DropdownMenuItem(value: 'calories', child: Text('Calories')),
+                    ],
+                    onChanged: (value) {
+                      setState(() => _selectedMetric = value!);
                     },
-                    tooltip: 'Switch to ${_showWeight ? 'Sets' : 'Weight'}',
-                    iconSize: 20,
-                    padding: EdgeInsets.zero,
-                    constraints: BoxConstraints(),
                   ),
                 ],
               ),
-              SizedBox(height: AppTheme.spacing_s),
+              const SizedBox(height: 20),
               
-              // Single Chart
+              // Chart
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0), // Add padding to avoid overflow
-                  child: LineChart(
-                    LineChartData(
-                      gridData: FlGridData(
-                        show: true,
-                        drawVerticalLine: false,
-                      ),
-                      titlesData: FlTitlesData(
-                        show: true,
-                        rightTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        topTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 22,
-                            getTitlesWidget: (value, meta) {
-                              final index = value.toInt();
-                              if (index >= 0 && index < weekData.length) {
-                                final date = weekData[index]['date'] as DateTime;
-                                return SideTitleWidget(
-                                  meta: meta,
-                                  child: Text(
-                                    '${date.day}/${date.month}',
-                                    style: const TextStyle(fontSize: 10),
-                                  ),
-                                );
-                              }
-                              return const SizedBox.shrink();
-                            },
-                          ),
-                        ),
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 40,
-                            getTitlesWidget: (value, meta) {
-                              return SideTitleWidget(
-                                meta: meta,
-                                child: Text('${value.toInt()}'),
+                child: LineChart(
+                  LineChartData(
+                    gridData: FlGridData(show: true),
+                    titlesData: FlTitlesData(
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            int index = value.toInt();
+                            if (index >= 0 && index < weekData.length) {
+                              return Text(
+                                DateFormat('E').format(weekData[index]['date']),
+                                style: TextStyle(fontSize: 10),
                               );
-                            },
-                          ),
+                            }
+                            return Text('');
+                          },
                         ),
                       ),
-                      borderData: FlBorderData(
-                        show: true,
-                        border: Border.all(color: const Color(0xff37434d), width: 1),
-                      ),
-                      minX: 0,
-                      maxX: spots.length - 1.0,
-                      minY: 0,
-                      maxY: maxY,
-                      lineBarsData: [
-                        LineChartBarData(
-                          spots: spots,
-                          isCurved: true,
-                          color: Theme.of(context).primaryColor,
-                          barWidth: 4,
-                          isStrokeCapRound: true,
-                          dotData: FlDotData(
-                            show: true,
-                            getDotPainter: (spot, percent, barData, index) {
-                              return FlDotCirclePainter(
-                                radius: 5,
-                                color: Theme.of(context).primaryColor,
-                                strokeWidth: 0,
-                              );
-                            },
-                          ),
-                          belowBarData: BarAreaData(
-                            show: true,
-                            gradient: LinearGradient(
-                              colors: [
-                                Theme.of(context).primaryColor.withOpacity(0.3),
-                              ],
-                              stops: const [0.5],
-                            ),
-                          ),
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 40,
+                          getTitlesWidget: (value, meta) {
+                            return Text(
+                              _formatAxisLabel(value),
+                              style: TextStyle(fontSize: 10),
+                            );
+                          },
                         ),
-                      ],
+                      ),
+                      rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                     ),
+                    borderData: FlBorderData(show: false),
+                    lineBarsData: [
+                      // Primary metric
+                      LineChartBarData(
+                        spots: spots,
+                        isCurved: true,
+                        color: Theme.of(context).primaryColor,
+                        barWidth: 3,
+                        isStrokeCapRound: true,
+                        dotData: FlDotData(show: true),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: Theme.of(context).primaryColor.withOpacity(0.2),
+                        ),
+                      ),
+                      // Secondary metric (trend line)
+                      if (_selectedMetric == 'volume' || _selectedMetric == 'calories') 
+                        LineChartBarData(
+                          spots: spots2,
+                          isCurved: true,
+                          color: Colors.red,
+                          barWidth: 2,
+                          isStrokeCapRound: true,
+                          dotData: FlDotData(show: false),
+                          dashArray: [5, 5],
+                        ),
+                    ],
                   ),
                 ),
+              ),
+              
+              // Legend
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildLegendItem(context, 'Actual', Theme.of(context).primaryColor),
+                  if (_selectedMetric == 'volume' || _selectedMetric == 'calories')
+                    _buildLegendItem(context, 'Trend', Colors.red),
+                ],
               ),
             ],
           ),
@@ -180,12 +152,166 @@ class _ProgressChartWidgetState extends State<ProgressChartWidget> {
     );
   }
   
-  // Calculate a nice interval for the Y-axis based on the max value
-  double _calculateInterval(double maxValue) {
-    if (maxValue <= 20) return 5;
-    if (maxValue <= 50) return 10;
-    if (maxValue <= 100) return 20;
-    if (maxValue <= 500) return 100;
-    return 200;
+  Widget _buildLegendItem(BuildContext context, String label, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 16,
+            height: 3,
+            color: color,
+          ),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: 12)),
+        ],
+      ),
+    );
+  }
+  
+  List<FlSpot> _getSpots(List<Map<String, dynamic>> weekData, WorkoutProvider provider) {
+    switch (_selectedMetric) {
+      case 'volume':
+        return weekData.asMap().entries.map((entry) {
+          return FlSpot(entry.key.toDouble(), entry.value['totalWeight'] as double);
+        }).toList();
+      case 'tonnage':
+        return _calculateTonnage(weekData, provider);
+      case 'intensity':
+        return _calculateIntensity(weekData, provider);
+      case 'density':
+        return _calculateDensity(weekData, provider);
+      case 'calories':
+        return _calculateCalories(weekData, provider);
+      default:
+        return [];
+    }
+  }
+  
+  List<FlSpot> _calculateCalories(List<Map<String, dynamic>> weekData, WorkoutProvider provider) {
+    return weekData.asMap().entries.map((entry) {
+      final calories = entry.value['calories'] as double? ?? 0.0;
+      return FlSpot(entry.key.toDouble(), calories);
+    }).toList();
+  }
+  
+  List<FlSpot> _getSecondarySpots(List<Map<String, dynamic>> weekData, WorkoutProvider provider) {
+    if (_selectedMetric == 'volume' || _selectedMetric == 'calories') {
+      // Calculate trend line
+      final spots = _getSpots(weekData, provider);
+      if (spots.length < 2) return [];
+      
+      // Simple linear regression for trend line
+      double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+      for (var spot in spots) {
+        sumX += spot.x;
+        sumY += spot.y;
+        sumXY += spot.x * spot.y;
+        sumX2 += spot.x * spot.x;
+      }
+      
+      double n = spots.length.toDouble();
+      double slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+      double intercept = (sumY - slope * sumX) / n;
+      
+      return spots.map((spot) {
+        return FlSpot(spot.x, slope * spot.x + intercept);
+      }).toList();
+    }
+    return [];
+  }
+  
+  List<FlSpot> _calculateTonnage(List<Map<String, dynamic>> weekData, WorkoutProvider provider) {
+    return weekData.asMap().entries.map((entry) {
+      double totalTonnage = 0;
+      final date = entry.value['date'] as DateTime;
+      
+      final dayWorkouts = provider.workouts.where(
+        (w) => w.date.year == date.year && 
+               w.date.month == date.month && 
+               w.date.day == date.day
+      );
+      
+      for (var workout in dayWorkouts) {
+        for (var exercise in workout.exercises) {
+          for (var set in exercise.sets) {
+            totalTonnage += set.weight * set.reps;
+          }
+        }
+      }
+      
+      return FlSpot(entry.key.toDouble(), totalTonnage);
+    }).toList();
+  }
+  
+  List<FlSpot> _calculateIntensity(List<Map<String, dynamic>> weekData, WorkoutProvider provider) {
+    return weekData.asMap().entries.map((entry) {
+      double avgIntensity = 0;
+      int setCount = 0;
+      final date = entry.value['date'] as DateTime;
+      
+      final dayWorkouts = provider.workouts.where(
+        (w) => w.date.year == date.year && 
+               w.date.month == date.month && 
+               w.date.day == date.day
+      );
+      
+      for (var workout in dayWorkouts) {
+        for (var exercise in workout.exercises) {
+          for (var set in exercise.sets) {
+            avgIntensity += set.reps;
+            setCount++;
+          }
+        }
+      }
+      
+      return FlSpot(
+        entry.key.toDouble(), 
+        setCount > 0 ? avgIntensity / setCount : 0
+      );
+    }).toList();
+  }
+  
+  List<FlSpot> _calculateDensity(List<Map<String, dynamic>> weekData, WorkoutProvider provider) {
+    return weekData.asMap().entries.map((entry) {
+      int totalReps = 0;
+      final date = entry.value['date'] as DateTime;
+      
+      final dayWorkouts = provider.workouts.where(
+        (w) => w.date.year == date.year && 
+               w.date.month == date.month && 
+               w.date.day == date.day
+      );
+      
+      for (var workout in dayWorkouts) {
+        for (var exercise in workout.exercises) {
+          for (var set in exercise.sets) {
+            totalReps += set.reps;
+          }
+        }
+      }
+      
+      // Assuming 60 minutes per workout
+      double density = totalReps / 60.0;
+      
+      return FlSpot(entry.key.toDouble(), density);
+    }).toList();
+  }
+  
+  String _formatAxisLabel(double value) {
+    switch (_selectedMetric) {
+      case 'volume':
+        return '${value.toInt()}kg';
+      case 'tonnage':
+        return '${(value / 1000).toStringAsFixed(1)}t';
+      case 'intensity':
+        return '${value.toStringAsFixed(1)}';
+      case 'density':
+        return '${value.toStringAsFixed(1)}/min';
+      case 'calories':
+        return '${value.toInt()} cal';
+      default:
+        return value.toStringAsFixed(1);
+    }
   }
 }

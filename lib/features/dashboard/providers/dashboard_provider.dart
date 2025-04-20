@@ -11,27 +11,116 @@ class DashboardProvider with ChangeNotifier {
   final ExerciseProvider _exerciseProvider;
   
   DashboardProvider(this._workoutProvider, this._exerciseProvider) {
-    // Listen to changes in workout and exercise providers
-    _workoutProvider.addListener(() {
-      notifyListeners();
-    });
+    // Enhanced listener setup for more granular updates
+    _workoutProvider.addListener(_handleWorkoutChanges);
     _exerciseProvider.addListener(() {
       notifyListeners();
     });
   }
-  
+
+  @override
+  void dispose() {
+    _workoutProvider.removeListener(_handleWorkoutChanges);
+    super.dispose();
+  }
+
+  void _handleWorkoutChanges() {
+    // Force recalculation of all stats when workouts change
+    _clearCache();
+    notifyListeners();
+  }
+
+  // Reset all dashboard state and cache
+  void resetState() {
+    _clearCache();
+    notifyListeners();
+  }
+
+  // Cache management
+  Map<DateTime, Map<String, dynamic>> _dailyStatsCache = {};
+  Map<String, dynamic>? _weeklyStatsCache;
+  DateTime? _lastCacheUpdate;
+
+  void _clearCache() {
+    _dailyStatsCache.clear();
+    _weeklyStatsCache = null;
+    _lastCacheUpdate = null;
+  }
+
+  bool _isCacheValid() {
+    if (_lastCacheUpdate == null) return false;
+    final now = DateTime.now();
+    return now.difference(_lastCacheUpdate!).inMinutes < 5; // Cache valid for 5 minutes
+  }
+
   // Get today's date with time set to start of day
   DateTime get today {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day);
   }
   
-  // Get today's progress
-  int get todayTotalSets => _workoutProvider.getTotalSets(today);
-  double get todayTotalWeight => _workoutProvider.getTotalWeightLifted(today);
+  // Get today's progress with improved caching
+  int get todayTotalSets {
+    final stats = _getDailyStats(today);
+    return stats['sets'] as int;
+  }
   
-  // Get weekly data for chart
+  double get todayTotalWeight {
+    final stats = _getDailyStats(today);
+    return stats['weight'] as double;
+  }
+  
+  Map<String, dynamic> _getDailyStats(DateTime date) {
+    final cacheKey = DateTime(date.year, date.month, date.day);
+    
+    // Return cached value if valid
+    if (_isCacheValid() && _dailyStatsCache.containsKey(cacheKey)) {
+      return _dailyStatsCache[cacheKey]!;
+    }
+    
+    // Calculate fresh stats
+    final dayStart = DateTime(date.year, date.month, date.day);
+    final dayEnd = dayStart.add(Duration(days: 1));
+    
+    final workouts = _workoutProvider.workouts.where((w) =>
+      w.date.isAfter(dayStart.subtract(Duration(seconds: 1))) &&
+      w.date.isBefore(dayEnd)
+    ).toList();
+    
+    int totalSets = 0;
+    double totalWeight = 0.0;
+    
+    for (final workout in workouts) {
+      for (final exercise in workout.exercises) {
+        totalSets += exercise.sets.where((set) => 
+          set.weight > 0 && set.reps > 0
+        ).length;
+        
+        for (final set in exercise.sets) {
+          if (set.weight > 0 && set.reps > 0) {
+            totalWeight += set.weight * set.reps;
+          }
+        }
+      }
+    }
+    
+    // Cache the results
+    _dailyStatsCache[cacheKey] = {
+      'sets': totalSets,
+      'weight': totalWeight,
+    };
+    
+    _lastCacheUpdate = DateTime.now();
+    
+    return _dailyStatsCache[cacheKey]!;
+  }
+
+  // Enhanced weekly data calculation with caching
   List<Map<String, dynamic>> getWeeklyChartData() {
+    if (_isCacheValid() && _weeklyStatsCache != null) {
+      return List<Map<String, dynamic>>.from(_weeklyStatsCache!['data']);
+    }
+    
     final weekData = <Map<String, dynamic>>[];
     final now = DateTime.now();
     
@@ -41,16 +130,21 @@ class DashboardProvider with ChangeNotifier {
     // Generate data for each day of the week
     for (int i = 0; i < 7; i++) {
       final day = startOfWeek.add(Duration(days: i));
-      final totalWeight = _workoutProvider.getTotalWeightLifted(day);
-      final totalSets = _workoutProvider.getTotalSets(day);
+      final stats = _getDailyStats(day);
       
       weekData.add({
         'date': day,
-        'day': DateFormat('E').format(day), // Short day name (Mon, Tue, etc.)
-        'totalWeight': totalWeight,
-        'totalSets': totalSets,
+        'day': DateFormat('E').format(day),
+        'totalWeight': stats['weight'],
+        'totalSets': stats['sets'],
       });
     }
+    
+    // Cache the results
+    _weeklyStatsCache = {
+      'data': weekData,
+      'timestamp': DateTime.now(),
+    };
     
     return weekData;
   }

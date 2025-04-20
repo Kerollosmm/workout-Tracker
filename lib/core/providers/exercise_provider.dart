@@ -42,7 +42,7 @@ class ExerciseProvider with ChangeNotifier {
         isCustom: false,
         iconPath: 'assets/icons/deadlift.png',
       ),
-      // Add more default exercises as needed
+      // Add more default exercises here
     ];
     
     for (final exercise in defaultExercises) {
@@ -50,6 +50,12 @@ class ExerciseProvider with ChangeNotifier {
     }
     
     notifyListeners();
+  }
+  
+  // Reset and reinitialize exercises
+  Future<void> resetExercises() async {
+    await _exercisesBox.clear();
+    await _addDefaultExercises();
   }
   
   List<Exercise> get exercises => _exercisesBox.values.toList();
