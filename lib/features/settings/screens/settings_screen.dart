@@ -114,7 +114,7 @@ class SettingsScreen extends StatelessWidget {
           // App Info
           ListTile(
             title: Text('App Version'),
-            subtitle: Text('1.0.0'),
+            subtitle: Text('2.0.0'),
             leading: Icon(Icons.info),
           ),
         ],
