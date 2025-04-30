@@ -78,34 +78,17 @@ class AppTheme {
   );
 
   static Color getColorForMuscleGroup(String muscleGroup) {
-    switch (muscleGroup.toLowerCase()) {
-      case 'chest':
-        return Color(0xFFFF3B30); // Red
-      case 'back':
-        return Color(0xFF246BFD); // Blue
-      case 'legs':
-        return Color(0xFF4CD964); // Green
-      case 'shoulders':
-        return Color(0xFFFF9500); // Orange
-      case 'arms':
-        return Color(0xFF5856D6); // Purple
-      case 'core':
-        return Color(0xFFFFCC00); // Yellow
-      case 'cardio':
-        return Color(0xFFFF2D55); // Pink
-      default:
-        return Colors.grey;
-    }
+    return muscleGroupColors[muscleGroup] ?? Colors.grey;
   }
 
   static const Map<String, Color> muscleGroupColors = {
-    'Chest': Color(0xFFFF3B30),
-    'Back': Color(0xFF246BFD),
-    'Shoulders': Color(0xFFFF9500),
-    'Arms': Color(0xFF5856D6),
-    'Legs': Color(0xFF4CD964),
-    'Core': Color(0xFFFFCC00),
-    'Cardio': Color(0xFFFF2D55),
-    'Full Body': Color(0xFF5AC8FA),
+    'Chest': Color(0xFFF44336),     // Red
+    'Back': Color(0xFF2196F3),      // Blue
+    'Shoulders': Color(0xFFFF9800),  // Orange
+    'Arms': Color(0xFF9C27B0),      // Purple
+    'Legs': Color(0xFF4CAF50),      // Green
+    'Core': Color(0xFFFFEB3B),      // Yellow
+    'Cardio': Color(0xFFE91E63),    // Pink
+    'Full Body': Color(0xFF009688), // Teal
   };
 }

@@ -112,40 +112,100 @@ class _ExerciseFormState extends State<ExerciseForm> {
           ),
           SizedBox(height: AppTheme.spacing_xl),
           
-          // Save Button
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: () async {
+          // Action Buttons
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () async {
                 if (_formKey.currentState!.validate()) {
-                  bool success;
+                  String? error;
                   if (widget.exercise != null) {
                     // Update existing exercise
-                    success = await provider.updateExercise(widget.exercise!.id);
+                    error = await provider.updateExercise(widget.exercise!.id);
                   } else {
                     // Create new exercise
-                    success = await provider.saveExercise();
+                    error = await provider.saveExercise();
                   }
-                  
-                  if (success) {
+
+                  if (error == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Exercise ${widget.exercise != null ? 'updated' : 'added'} successfully')),
                     );
                     Navigator.pop(context);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(error), backgroundColor: Colors.red),
+                    );
                   }
                 }
-              },
-              child: Text(
-                widget.exercise != null ? 'Update Exercise' : 'Save Exercise',
-                style: TextStyle(fontSize: 16),
-              ),
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                    },
+                    child: Text(
+                      widget.exercise != null ? 'Update Exercise' : 'Save Exercise',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              if (widget.exercise != null)
+                Padding(
+                  padding: EdgeInsets.only(left: AppTheme.spacing_m),
+                  child: SizedBox(
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text('Delete Exercise'),
+                            content: Text('Are you sure you want to delete this exercise?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: Text('Delete', style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirm ?? false) {
+                          final error = await provider.deleteExercise(widget.exercise!.id);
+                          if (!mounted) return;
+
+                          if (error == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Exercise deleted successfully')),
+                            );
+                            Navigator.pop(context);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(error), backgroundColor: Colors.red),
+                            );
+                          }
+                        }
+                      },
+                      child: Text('Delete', style: TextStyle(color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),

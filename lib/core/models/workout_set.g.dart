@@ -21,9 +21,9 @@ class WorkoutSetAdapter extends TypeAdapter<WorkoutSet> {
       weight: fields[1] as double,
       reps: fields[2] as int,
       timestamp: fields[3] as DateTime,
-      isCompleted: fields[4] as bool? ?? true,
+      isCompleted: fields[4] as bool,
       notes: fields[5] as String?,
-      isHardSet: fields[6] as bool? ?? false,
+      isHardSet: fields[6] as bool,
     );
   }
 

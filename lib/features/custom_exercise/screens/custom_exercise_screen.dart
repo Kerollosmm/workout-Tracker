@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:workout_tracker/features/custom_exercise/providers/custom_exercise_provider.dart';
+import 'package:workout_tracker/shared/widgets/custom_snackbar.dart';
 import '../../../core/models/exercise.dart';
 import '../../../core/providers/exercise_provider.dart';
 import '../widgets/muscle_group_selector.dart';
@@ -15,6 +17,7 @@ class _CustomExerciseScreenState extends State<CustomExerciseScreen> {
   final _nameController = TextEditingController();
   String _selectedMuscleGroup = 'Chest';
   bool _isFavorite = false;
+  bool _isSaving = false;
   String? _notes;
   final uuid = Uuid();
 
@@ -24,39 +27,38 @@ class _CustomExerciseScreenState extends State<CustomExerciseScreen> {
     super.dispose();
   }
 
-  void _saveExercise() {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+  void _saveExercise() async {
+    if (!_formKey.currentState!.validate()) return;
 
-    final exerciseProvider = Provider.of<ExerciseProvider>(context, listen: false);
-    
-    final newExercise = Exercise(
-      id: uuid.v4(),
-      name: _nameController.text.trim(),
-      muscleGroup: _selectedMuscleGroup,
-      isFavorite: _isFavorite,
-      notes: _notes,
-      isCustom: true,
-    );
-    
-    exerciseProvider.addExercise(newExercise);
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Exercise added successfully')),
-    );
-    
-    Navigator.pop(context);
+    setState(() => _isSaving = true);
+
+    final error =
+        await Provider.of<CustomExerciseProvider>(
+          context,
+          listen: false,
+        ).saveExercise();
+
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+
+    if (error != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(CustomSnackbar.error(message: error));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        CustomSnackbar.success(message: 'Exercise saved successfully'),
+      );
+      Navigator.pop(context);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final exerciseProvider = Provider.of<ExerciseProvider>(context);
-    
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Add Custom Exercise'),
-      ),
+      appBar: AppBar(title: Text('Add Custom Exercise')),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16.0),
         child: Form(
@@ -65,22 +67,21 @@ class _CustomExerciseScreenState extends State<CustomExerciseScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Exercise Name Field
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: 'Exercise Name',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.fitness_center),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter an exercise name';
-                  }
-                  return null;
-                },
+              Consumer<CustomExerciseProvider>(
+                builder:
+                    (context, provider, _) => TextFormField(
+                      decoration: InputDecoration(
+                        labelText: 'Exercise Name',
+                        errorText:
+                            provider.exerciseName.isEmpty
+                                ? 'Name required'
+                                : null,
+                      ),
+                      onChanged: provider.setExerciseName,
+                    ),
               ),
               SizedBox(height: 24),
-              
+
               // Muscle Group Selection
               Text(
                 'Muscle Group',
@@ -91,13 +92,14 @@ class _CustomExerciseScreenState extends State<CustomExerciseScreen> {
                 muscleGroups: exerciseProvider.allMuscleGroups,
                 selectedMuscleGroup: _selectedMuscleGroup,
                 onMuscleGroupSelected: (muscleGroup) {
-                  setState(() {
-                    _selectedMuscleGroup = muscleGroup;
-                  });
+                  Provider.of<CustomExerciseProvider>(
+                    context,
+                    listen: false,
+                  ).setMuscleGroup(muscleGroup);
                 },
               ),
               SizedBox(height: 24),
-              
+
               // Favorite Checkbox
               CheckboxListTile(
                 title: Text('Add to Favorites'),
@@ -111,36 +113,61 @@ class _CustomExerciseScreenState extends State<CustomExerciseScreen> {
                 controlAffinity: ListTileControlAffinity.leading,
               ),
               SizedBox(height: 24),
-              
+
               // Notes Field
               TextFormField(
+                maxLength: 200,
                 decoration: InputDecoration(
-                  labelText: 'Notes (optional)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.note),
+                  labelText: 'Notes',
+                  counterText:
+                      'Characters remaining: ${200 - (Provider.of<CustomExerciseProvider>(context).notes?.length ?? 0)}',
                 ),
-                maxLines: 3,
-                onChanged: (value) {
-                  _notes = value;
-                },
+                onChanged:
+                    (value) => Provider.of<CustomExerciseProvider>(
+                      context,
+                      listen: false,
+                    ).setNotes(value),
               ),
               SizedBox(height: 32),
-              
+
               // Save Button
               SizedBox(
                 width: double.infinity,
                 height: 50,
-                child: ElevatedButton(
-                  onPressed: _saveExercise,
-                  child: Text(
-                    'Save Exercise',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
+                child: StatefulBuilder(
+                  builder:
+                      (context, setState) => ElevatedButton(
+                        onPressed:
+                            _isSaving
+                                ? null
+                                : () async {
+                                  setState(() => _isSaving = true);
+                                  final error =
+                                      await Provider.of<CustomExerciseProvider>(
+                                        context,
+                                        listen: false,
+                                      ).saveExercise();
+                                  setState(() => _isSaving = false);
+
+                                  if (!context.mounted) return;
+
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        error ?? 'Exercise saved successfully!',
+                                      ),
+                                      backgroundColor:
+                                          error != null
+                                              ? Colors.red
+                                              : Colors.green,
+                                    ),
+                                  );
+                                },
+                        child:
+                            _isSaving
+                                ? const CircularProgressIndicator()
+                                : const Text('Save Exercise'),
+                      ),
                 ),
               ),
             ],

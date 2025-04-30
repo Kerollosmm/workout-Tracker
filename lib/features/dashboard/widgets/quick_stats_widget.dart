@@ -8,9 +8,8 @@ import '../../../core/providers/workout_provider.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/analytics_provider.dart';
 import '../../../utils/formatters.dart';
-import '../providers/dashboard_provider.dart';
 
-class QuickStatsWidget extends StatelessWidget {
+class QuickStatsWidget extends StatefulWidget {
   final int totalSets;
   final double totalWeight;
 
@@ -21,85 +20,142 @@ class QuickStatsWidget extends StatelessWidget {
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final workoutProvider = Provider.of<WorkoutProvider>(context);
-    final analyticsProvider = Provider.of<AnalyticsProvider>(context);
-    final settingsProvider = Provider.of<SettingsProvider>(context);
-    final dashboardProvider = Provider.of<DashboardProvider>(context);
+  State<QuickStatsWidget> createState() => _QuickStatsWidgetState();
+}
 
-    // Get most trained exercise info
-    final mostTrainedExercise = analyticsProvider.getMostTrainedExercise();
+class _QuickStatsWidgetState extends State<QuickStatsWidget> {
+  Map<String, dynamic> _statsCache = {};
+  DateTime? _lastUpdate;
+  final _cacheTimeout = const Duration(minutes: 5);
 
-    // Calculate total volume for today (sets x reps x load)
+  bool _shouldUpdateCache() {
+    return _lastUpdate == null || 
+           DateTime.now().difference(_lastUpdate!) > _cacheTimeout;
+  }
+
+  void _updateCache(WorkoutProvider workoutProvider) {
     final today = DateTime.now();
-    final totalVolume = _calculateTotalVolume(workoutProvider, today);
-    
-    // Get calories burned today
-    final caloriesBurned = dashboardProvider.getDailyCaloriesBurned(today);
+    _statsCache = {
+      'totalVolume': _calculateTotalVolume(workoutProvider, today),
+      'caloriesBurned': _calculateCaloriesBurned(workoutProvider, today),
+      'mostTrainedExercise': _getMostTrainedExercise(workoutProvider),
+    };
+    _lastUpdate = DateTime.now();
+  }
 
-    return Column(
-      children: [
-        Row(
-          children: [
-            // Total Sets Card
-            Expanded(
-              child: _buildStatCard(
-                context,
-                'Total Sets',
-                totalSets.toString(),
-                Icons.fitness_center,
-                Colors.blue,
-              ),
-            ),
-            SizedBox(width: AppTheme.spacing_m),
-            // Total Weight Card
-            Expanded(
-              child: _buildStatCard(
-                context,
-                'Weight Lifted',
-                '${totalVolume.toStringAsFixed(1)} ${settingsProvider.weightUnit}',
-                Icons.monitor_weight,
-                Colors.green,
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: AppTheme.spacing_m),
-        Row(
-          children: [
-            // Calories Burned Card
-            Expanded(
-              child: _buildStatCard(
-                context,
-                'Calories Burned',
-                '${caloriesBurned.toInt()} cal',
-                Icons.local_fire_department,
-                Colors.orange,
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: AppTheme.spacing_m),
-        // Most Trained Exercise Card
-        _buildMostTrainedCard(context, mostTrainedExercise),
-      ],
+  double _calculateTotalVolume(WorkoutProvider provider, DateTime date) {
+    final workouts = provider.getWorkoutsForDay(date);
+    return workouts.fold(0.0, (total, workout) =>
+      total + workout.exercises.fold(0.0, (exerciseTotal, exercise) =>
+        exerciseTotal + exercise.sets.fold(0.0, (setTotal, set) =>
+          setTotal + (set.weight * set.reps)
+        )
+      )
     );
   }
 
-  // Helper to calculate total volume (sets x reps x load) for a given day
-  double _calculateTotalVolume(WorkoutProvider workoutProvider, DateTime day) {
-    final workouts = workoutProvider.workouts.where((w) =>
-      w.date.year == day.year && w.date.month == day.month && w.date.day == day.day
+  int _calculateCaloriesBurned(WorkoutProvider provider, DateTime date) {
+    final workouts = provider.getWorkoutsForDay(date);
+    // Simple estimation: 3 calories per rep with weight
+    return workouts.fold(0, (total, workout) =>
+      total + workout.exercises.fold(0, (exerciseTotal, exercise) =>
+        exerciseTotal + exercise.sets.fold(0, (setTotal, set) =>
+          setTotal + (set.reps * 3)
+        )
+      )
     );
-    double total = 0;
-    for (final workout in workouts) {
-      for (final exercise in workout.exercises) {
-        for (final set in exercise.sets) {
-          total += set.weight * set.reps;
-        }
-      }
+  }
+
+// 2. In the _getMostTrainedExercise method of quick_stats_widget.dart:
+Map<String, dynamic> _getMostTrainedExercise(WorkoutProvider provider) {
+  final exerciseCounts = <String, int>{};
+  final exerciseNames = <String, String>{};
+  
+  for (final workout in provider.workouts.take(30)) { // Last 30 days
+    for (final exercise in workout.exercises) {
+      final exerciseId = exercise.exerciseId ?? 'unknown';  // Add null check
+      exerciseCounts[exerciseId] = (exerciseCounts[exerciseId] ?? 0) + 1;
+      exerciseNames[exerciseId] = exercise.exerciseName;
     }
-    return total;
+  }
+
+  if (exerciseCounts.isEmpty) {
+    return {'name': 'No exercises yet', 'count': 0};
+  }
+
+  final mostTrainedId = exerciseCounts.entries
+    .reduce((a, b) => a.value > b.value ? a : b)
+    .key;
+
+  return {
+    'name': exerciseNames[mostTrainedId] ?? 'Unknown',  // Add null check
+    'count': exerciseCounts[mostTrainedId] ?? 0,  // Add null check
+  };
+}
+  @override
+  Widget build(BuildContext context) {
+    return Consumer3<WorkoutProvider, AnalyticsProvider, SettingsProvider>(
+      builder: (context, workoutProvider, analyticsProvider, settingsProvider, _) {
+        if (_shouldUpdateCache()) {
+          _updateCache(workoutProvider);
+        }
+
+        return Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    'Total Sets',
+                    widget.totalSets.toString(),
+                    Icons.fitness_center,
+                    Colors.blue,
+                  ),
+                ),
+                SizedBox(width: AppTheme.spacing_m),
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    'Volume',
+                    '${_statsCache['totalVolume']?.toStringAsFixed(1)} ${settingsProvider.weightUnit}',
+                    Icons.monitor_weight,
+                    Colors.green,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: AppTheme.spacing_m),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    'Calories',
+                    '${_statsCache['caloriesBurned']} cal',
+                    Icons.local_fire_department,
+                    Colors.orange,
+                  ),
+                ),
+                SizedBox(width: AppTheme.spacing_m),
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    'Most Trained',
+                    _statsCache['mostTrainedExercise']?['name'] ?? 'None',
+                    Icons.star,
+                    Colors.purple,
+                    subtitle: _statsCache['mostTrainedExercise']?['count'] > 0
+                      ? '${_statsCache['mostTrainedExercise']?['count']} times'
+                      : null,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildStatCard(
@@ -107,131 +163,51 @@ class QuickStatsWidget extends StatelessWidget {
     String title,
     String value,
     IconData icon,
-    Color iconColor,
-  ) {
+    Color color, {
+    String? subtitle,
+  }) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              iconColor.withOpacity(0.1),
-              Colors.transparent,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: iconColor.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(icon, size: 20, color: iconColor),
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: Colors.grey[600],
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 12),
-              Text(
-                value,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildMostTrainedCard(BuildContext context, Map<String, dynamic> exerciseData) {
-    final muscleGroup = exerciseData['muscleGroup'] as String? ?? '';
-    final muscleGroupColor = AppTheme.getColorForMuscleGroup(muscleGroup);
-    
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius_l),
+        borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
       ),
       child: Padding(
-        padding: EdgeInsets.all(AppTheme.spacing_m),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.star, color: Colors.amber, size: 18),
+                Icon(icon, color: color, size: 20),
                 SizedBox(width: 8),
                 Text(
-                  'Most Trained Exercise',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
                     color: Colors.grey[600],
                   ),
                 ),
               ],
             ),
             SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        exerciseData['name'] as String? ?? 'None',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (muscleGroup.isNotEmpty)
-                        Chip(
-                          label: Text(
-                            muscleGroup,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white,
-                            ),
-                          ),
-                          backgroundColor: muscleGroupColor,
-                          padding: EdgeInsets.zero,
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                    ],
-                  ),
-                ),
-                Text(
-                  '${exerciseData['count']} sessions',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
             ),
+            if (subtitle != null) ...[
+              SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
           ],
         ),
       ),

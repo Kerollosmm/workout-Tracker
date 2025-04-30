@@ -33,8 +33,8 @@ class Workout extends HiveObject {
     double total = 0;
     for (final exercise in exercises) {
       for (final set in exercise.sets) {
-        if (set.weight > 0 && set.reps > 0) {
-          total += set.weight * set.reps;
+        if (set.weight > 0) {
+          total += set.weight;
         }
       }
     }

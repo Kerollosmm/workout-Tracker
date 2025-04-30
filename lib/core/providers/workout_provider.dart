@@ -2,130 +2,81 @@ import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 import '../models/workout.dart';
-import '../models/workout_set.dart';
+import 'package:intl/intl.dart';
+import 'package:intl/intl.dart';
 
 class WorkoutProvider with ChangeNotifier {
-  final Box<Workout> _workoutsBox = Hive.box<Workout>('workouts');
-  final uuid = Uuid();
+  final Box<Workout> _workoutsBox;
+  List<Workout> _cachedWorkouts = [];
+  DateTime? _lastCacheUpdate;
+  final _cacheTimeout = const Duration(minutes: 5);
+
+  WorkoutProvider(this._workoutsBox) {
+    _updateCache();
+  }
+
+  void _updateCache() {
+    _cachedWorkouts = _workoutsBox.values.toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    _lastCacheUpdate = DateTime.now();
+  }
+
+  bool _isCacheValid() {
+    return _lastCacheUpdate != null &&
+           DateTime.now().difference(_lastCacheUpdate!) < _cacheTimeout;
+  }
 
   List<Workout> get workouts {
-    // Return sorted workouts by date (newest first)
-    final workoutsList = _workoutsBox.values.toList();
-    workoutsList.sort((a, b) => b.date.compareTo(a.date));
-    return workoutsList;
-  }
-
-  double getTotalWeightLifted(DateTime? date) {
-    double total = 0;
-    
-    final relevantWorkouts = date != null 
-        ? _getWorkoutsForDate(date)
-        : workouts;
-
-    for (final workout in relevantWorkouts) {
-      total += _calculateWorkoutWeight(workout);
+    if (!_isCacheValid()) {
+      _updateCache();
     }
-    
-    return total;
+    return _cachedWorkouts;
   }
 
-  double getEffectiveWeightLifted(DateTime? date) {
-    double total = 0;
+  List<Workout> _getRelevantWorkouts(DateTime? date) {
+    if (date == null) return workouts;
     
-    final relevantWorkouts = date != null 
-        ? _getWorkoutsForDate(date)
-        : workouts;
-
-    for (final workout in relevantWorkouts) {
-      total += _calculateEffectiveWeight(workout);
-    }
-    
-    return total;
-  }
-
-  int getTotalSets(DateTime? date) {
-    int total = 0;
-    
-    final relevantWorkouts = date != null 
-        ? _getWorkoutsForDate(date)
-        : workouts;
-
-    for (final workout in relevantWorkouts) {
-      total += _calculateTotalSets(workout);
-    }
-    
-    return total;
-  }
-
-  int getHardSetCount(DateTime? date) {
-    int total = 0;
-    
-    final relevantWorkouts = date != null 
-        ? _getWorkoutsForDate(date)
-        : workouts;
-
-    for (final workout in relevantWorkouts) {
-      total += _calculateHardSets(workout);
-    }
-    
-    return total;
-  }
-
-  // Private helper methods for calculations
-  List<Workout> _getWorkoutsForDate(DateTime date) {
     final dayStart = DateTime(date.year, date.month, date.day);
-    final dayEnd = dayStart.add(Duration(days: 1));
+    final dayEnd = dayStart.add(const Duration(days: 1));
     
     return workouts.where((w) =>
-      w.date.isAfter(dayStart.subtract(Duration(seconds: 1))) &&
+      w.date.isAfter(dayStart.subtract(const Duration(seconds: 1))) &&
       w.date.isBefore(dayEnd)
     ).toList();
   }
 
-  double _calculateWorkoutWeight(Workout workout) {
-    double total = 0;
-    for (final exercise in workout.exercises) {
-      for (final set in exercise.sets) {
-        if (set.weight > 0 && set.reps > 0) {
-          total += set.weight * set.reps;
-        }
-      }
-    }
-    return total;
+  double getTotalWeightLifted([DateTime? date]) {
+    final relevantWorkouts = _getRelevantWorkouts(date);
+    return relevantWorkouts.fold(0.0, 
+      (total, workout) => total + workout.totalWeightLifted
+    );
   }
 
-  double _calculateEffectiveWeight(Workout workout) {
-    double total = 0;
-    for (final exercise in workout.exercises) {
-      for (final set in exercise.sets) {
-        if (set.isHardSet) {
-          total += set.weight * set.reps;
-        }
-      }
-    }
-    return total;
+  double getEffectiveWeightLifted([DateTime? date]) {
+    final relevantWorkouts = _getRelevantWorkouts(date);
+    return relevantWorkouts.fold(0.0, 
+      (total, workout) => total + workout.effectiveWeightLifted
+    );
   }
 
-  int _calculateTotalSets(Workout workout) {
-    int total = 0;
-    for (final exercise in workout.exercises) {
-      total += exercise.sets.length;
-    }
-    return total;
+  int getTotalSets([DateTime? date]) {
+    final relevantWorkouts = _getRelevantWorkouts(date);
+    return relevantWorkouts.fold(0, 
+      (total, workout) => total + workout.totalSets
+    );
   }
 
-  int _calculateHardSets(Workout workout) {
-    int total = 0;
-    for (final exercise in workout.exercises) {
-      total += exercise.sets.where((set) => set.isHardSet).length;
-    }
-    return total;
+  int getHardSetCount([DateTime? date]) {
+    final relevantWorkouts = _getRelevantWorkouts(date);
+    return relevantWorkouts.fold(0, 
+      (total, workout) => total + workout.hardSetCount
+    );
   }
 
-  // CRUD operations
   Future<void> addWorkout(Workout workout) async {
     try {
       await _workoutsBox.add(workout);
+      _updateCache();
       notifyListeners();
     } catch (e) {
       debugPrint('Error adding workout: $e');
@@ -135,19 +86,12 @@ class WorkoutProvider with ChangeNotifier {
 
   Future<void> updateWorkout(Workout workout) async {
     try {
-      // Find the workout in the box
-      final workoutInBox = _workoutsBox.values.firstWhere(
-        (w) => w.id == workout.id,
-        orElse: () => throw Exception('Workout not found'),
-      );
-      
-      // Get the key for this workout
-      final key = workoutInBox.key;
-      
-      // Update the workout at this key
-      await _workoutsBox.put(key, workout);
-      
-      notifyListeners();
+      final index = workouts.indexWhere((w) => w.id == workout.id);
+      if (index != -1) {
+        await _workoutsBox.putAt(index, workout);
+        _updateCache();
+        notifyListeners();
+      }
     } catch (e) {
       debugPrint('Error updating workout: $e');
       rethrow;
@@ -156,75 +100,119 @@ class WorkoutProvider with ChangeNotifier {
 
   Future<void> deleteWorkout(String id) async {
     try {
-      // Find the workout in the box
-      final workoutInBox = _workoutsBox.values.firstWhere(
-        (w) => w.id == id,
-        orElse: () => throw Exception('Workout not found'),
-      );
-      
-      // Get the key for this workout
-      final key = workoutInBox.key;
-      
-      // Delete the workout using its key
-      await _workoutsBox.delete(key);
-      
-      notifyListeners();
+      final index = workouts.indexWhere((w) => w.id == id);
+      if (index != -1) {
+        await _workoutsBox.deleteAt(index);
+        _updateCache();
+        notifyListeners();
+      }
     } catch (e) {
       debugPrint('Error deleting workout: $e');
       rethrow;
     }
   }
 
-  // Get exercise performance data for charts
   List<Map<String, dynamic>> getExerciseProgressData(String exerciseId, {int limit = 10}) {
-    final data = <Map<String, dynamic>>[];
+    final workoutsWithExercise = workouts
+      .where((w) => w.exercises.any((e) => e.exerciseId == exerciseId))
+      .toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
     
-    // Find workouts containing this exercise
-    final workoutsWithExercise = workouts.where((w) => 
-      w.exercises.any((e) => e.exerciseId == exerciseId)
-    ).toList();
-    
-    // Sort by date
-    workoutsWithExercise.sort((a, b) => a.date.compareTo(b.date));
-    
-    // Take only the most recent ones based on limit
     final limitedWorkouts = workoutsWithExercise.length > limit 
-        ? workoutsWithExercise.sublist(workoutsWithExercise.length - limit) 
-        : workoutsWithExercise;
-    
-    for (var workout in limitedWorkouts) {
-      final exercise = workout.exercises.firstWhere((e) => e.exerciseId == exerciseId);
+      ? workoutsWithExercise.sublist(workoutsWithExercise.length - limit)
+      : workoutsWithExercise;
+
+    return limitedWorkouts.map((w) {
+      final exercise = w.exercises.firstWhere((e) => e.exerciseId == exerciseId);
+      final maxWeight = exercise.sets.fold(0.0, 
+        (max, set) => set.weight > max ? set.weight : max
+      );
       
-      // Calculate max weight for this exercise in this workout
-      if (exercise.sets.isNotEmpty) {
-        final maxWeight = exercise.sets.reduce((curr, next) => 
-          curr.weight > next.weight ? curr : next
-        ).weight;
-        
-        data.add({
-          'date': workout.date,
-          'weight': maxWeight,
-        });
-      }
-    }
-    
-    return data;
+      return {
+        'date': w.date,
+        'weight': maxWeight,
+        'volume': exercise.sets.fold(0.0, 
+          (sum, set) => sum + (set.weight * set.reps)
+        ),
+      };
+    }).toList();
   }
-  
-  // Get distribution of muscle groups trained
+
   Map<String, int> getMuscleGroupDistribution() {
     final distribution = <String, int>{};
     
-    for (var workout in workouts) {
-      for (var exercise in workout.exercises) {
-        if (distribution.containsKey(exercise.muscleGroup)) {
-          distribution[exercise.muscleGroup] = distribution[exercise.muscleGroup]! + 1;
-        } else {
-          distribution[exercise.muscleGroup] = 1;
-        }
+    for (final workout in workouts) {
+      for (final exercise in workout.exercises) {
+        distribution[exercise.muscleGroup] = 
+          (distribution[exercise.muscleGroup] ?? 0) + 1;
       }
     }
     
     return distribution;
+  }
+
+  Map<String, dynamic> getDashboardStats() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    // Initialize default values
+    final defaultStats = {
+      'workouts': 0,
+      'sets': 0,
+      'weight': 0.0,
+      'hardSets': 0
+    };
+
+    return {
+      'today': _calculatePeriodStats(_getRelevantWorkouts(today)) ?? defaultStats,
+      'week': _calculatePeriodStats(_getRelevantWorkoutsForDays(7)) ?? defaultStats,
+      'month': _calculatePeriodStats(_getRelevantWorkoutsForDays(30)) ?? defaultStats,
+      'muscleGroupData': getMuscleGroupDistribution(),
+      'dailyData': _getWeeklyDailyData(),
+    };
+  }
+
+  Map<String, dynamic>? _calculatePeriodStats(List<Workout> workouts) {
+    if (workouts.isEmpty) return null;
+    
+    return {
+      'workouts': workouts.length,
+      'sets': workouts.fold(0, (sum, w) => sum + w.totalSets),
+      'weight': workouts.fold(0.0, (sum, w) => sum + w.totalWeightLifted),
+      'hardSets': workouts.fold(0, (sum, w) => sum + w.hardSetCount),
+    };
+  }
+
+  List<Workout> _getRelevantWorkoutsForDays(int days) {
+    final now = DateTime.now();
+    final startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: days - 1));
+    
+    return workouts.where((w) => 
+      w.date.isAfter(startDate.subtract(const Duration(seconds: 1))) && 
+      w.date.isBefore(now.add(const Duration(days: 1)))
+    ).toList();
+  }
+
+  List<Map<String, dynamic>> _getWeeklyDailyData() {
+    final dailyData = List.generate(7, (index) {
+      final date = DateTime.now().subtract(Duration(days: 6 - index));
+      final workouts = _getRelevantWorkouts(date);
+      return {
+        'day': DateFormat('E').format(date),
+        'volume': workouts.fold(0.0, (sum, w) => sum + w.totalWeightLifted),
+        'date': date,
+      };
+    });
+    return dailyData;
+  }
+
+  List<Workout> getWorkoutsForDay(DateTime date) {
+    return _getRelevantWorkouts(date);
+  }
+
+  @override
+  void dispose() {
+    _cachedWorkouts.clear();
+    super.dispose();
   }
 }
