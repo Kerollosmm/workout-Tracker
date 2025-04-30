@@ -10,6 +10,11 @@
 #include <share_plus/share_plus_windows_plugin_c_api.h>
 #include <url_launcher_windows/url_launcher_windows.h>
 
+/**
+ * @brief Registers Flutter plugins with the provided plugin registry.
+ *
+ * Registers the FlutterTimezone, SharePlus Windows, and URL Launcher Windows plugins so they can be used within the Flutter application on Windows.
+ */
 void RegisterPlugins(flutter::PluginRegistry* registry) {
   FlutterTimezonePluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("FlutterTimezonePluginCApi"));
