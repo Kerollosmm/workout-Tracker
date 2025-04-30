@@ -127,10 +127,13 @@ class WorkoutProvider with ChangeNotifier {
       final maxWeight = exercise.sets.fold(0.0, 
         (max, set) => set.weight > max ? set.weight : max
       );
-      
+      final totalReps = exercise.sets.fold(0, (sum, set) => sum + set.reps);
+      final totalSets = exercise.sets.length;
       return {
         'date': w.date,
         'weight': maxWeight,
+        'reps': totalReps,
+        'sets': totalSets,
         'volume': exercise.sets.fold(0.0, 
           (sum, set) => sum + (set.weight * set.reps)
         ),
@@ -208,6 +211,20 @@ class WorkoutProvider with ChangeNotifier {
 
   List<Workout> getWorkoutsForDay(DateTime date) {
     return _getRelevantWorkouts(date);
+  }
+
+  Workout? getLatestWorkout() {
+    if (workouts.isEmpty) return null;
+    return workouts.first; // Already sorted by date in _updateCache
+  }
+
+  Workout createEmptyWorkout() {
+    return Workout(
+      id: const Uuid().v4(),
+      date: DateTime.now(),
+      exercises: [],
+      notes: '',
+    );
   }
 
   @override

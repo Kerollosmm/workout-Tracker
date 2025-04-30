@@ -6,10 +6,13 @@ import '../../../core/providers/workout_provider.dart';
 import '../../../config/constants/app_constants.dart';
 import '../../custom_workout/screens/workout_editor_screen.dart';
 import '../components/day_workouts_widget.dart';
+import '../components/workout_summary_card.dart';
 import '../../analytics/screens/analytics_screen.dart';
 import '../../workout_log/screens/workout_log_screen.dart';
 import '../../history/screens/history_screen.dart';
 import '../../settings/screens/settings_screen.dart';
+import '../../../shared/widgets/share_button.dart';
+import '../../../core/providers/exercise_provider.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -92,20 +95,23 @@ class DashboardContent extends StatefulWidget {
 
 class _DashboardContentState extends State<DashboardContent> {
   String? _selectedExerciseId;
+  String? _selectedMuscleGroup;
+  String _selectedTimePeriod = 'Month';
   
   @override
   Widget build(BuildContext context) {
     try {
       final workoutProvider = Provider.of<WorkoutProvider>(context);
+      final exerciseProvider = Provider.of<ExerciseProvider>(context);
       final stats = workoutProvider.getDashboardStats();
       final todayStats = (stats['today'] as Map<String, dynamic>?) ?? {};
       final dailyData = (stats['dailyData'] as List<dynamic>?) ?? [];
 
-      final exercises = workoutProvider.workouts
-          .expand((w) => w.exercises)
-          .map((e) => {'id': e.exerciseId, 'name': e.exerciseName})
-          .toSet()
-          .toList();
+      // Get muscle groups and exercises
+      final muscleGroups = exerciseProvider.allMuscleGroups;
+      final exercises = _selectedMuscleGroup == null
+          ? exerciseProvider.exercises
+          : exerciseProvider.getExercisesByMuscleGroup(_selectedMuscleGroup!);
 
       return Scaffold(
         body: RefreshIndicator(
@@ -119,8 +125,13 @@ class _DashboardContentState extends State<DashboardContent> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeaderSection(todayStats),
-                _buildExerciseDropdown(exercises),
-                _buildPerformanceChart(workoutProvider, dailyData),
+                const SizedBox(height: 16),
+                WorkoutSummaryCard(
+                  workout: workoutProvider.getLatestWorkout() ?? workoutProvider.createEmptyWorkout(),
+                ),
+                const SizedBox(height: 16),
+                _buildQuickActions(),
+                const SizedBox(height: 24),
                 _buildMuscleGroupChart(stats),
                 _buildTodaysWorkouts(workoutProvider),
                 const SizedBox(height: 80),
@@ -144,30 +155,124 @@ class _DashboardContentState extends State<DashboardContent> {
     }
   }
 
+  Widget _buildQuickActions() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildQuickActionButton(
+            icon: Icons.add_circle_outline,
+            label: 'Quick Log',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => WorkoutLogScreen()),
+            ),
+          ),
+          _buildQuickActionButton(
+            icon: Icons.analytics_outlined,
+            label: 'Analytics',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AnalyticsScreen()),
+            ),
+          ),
+          _buildQuickActionButton(
+            icon: Icons.history,
+            label: 'History',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => HistoryScreen()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.27,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: AppTheme.primaryColor),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[800],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeaderSection(Map<String, dynamic> todayStats) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppTheme.primaryColor, AppTheme.primaryColor],
+        gradient: LinearGradient(
+          colors: [
+            AppTheme.primaryColor,
+            AppTheme.primaryColor.withOpacity(0.8),
+          ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryColor.withOpacity(0.3),
+            spreadRadius: 1,
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 30, 20, 30),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Today\'s Progress',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Today\'s Progress',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+             
+            ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -210,68 +315,179 @@ class _DashboardContentState extends State<DashboardContent> {
     );
   }
 
-  Widget _buildExerciseDropdown(List<Map<String, dynamic>> exercises) {
+ 
+  Widget _buildPerformanceChart(WorkoutProvider provider, List<dynamic> dailyData) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Track Exercise Progress',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D3142),
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildTimePeriodSelector(),
+              const SizedBox(height: 24),
+              SizedBox(
+                height: 300,
+                child: _buildExerciseChart(dailyData),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimePeriodSelector() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(50),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            'Track Exercise Progress',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: DropdownButton<String>(
-              value: _selectedExerciseId,
-              hint: const Text('Select Exercise'),
-              isExpanded: true,
-              underline: const SizedBox(),
-              items: exercises
-                  .where((exercise) => exercise['id'] != null && exercise['name'] != null)
-                  .map((exercise) => DropdownMenuItem<String>(
-                        value: exercise['id'] as String,
-                        child: Text(exercise['name'] as String),
-                      ))
-                  .toList(),
-              onChanged: (value) => setState(() => _selectedExerciseId = value),
-            ),
-          ),
+          _buildTimePeriodButton('Day', isSelected: _selectedTimePeriod == 'Day'),
+          _buildTimePeriodButton('Week', isSelected: _selectedTimePeriod == 'Week'),
+          _buildTimePeriodButton('Month', isSelected: _selectedTimePeriod == 'Month'),
         ],
       ),
     );
   }
 
-  Widget _buildPerformanceChart(WorkoutProvider provider, List<dynamic> dailyData) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _selectedExerciseId != null ? 'Exercise Progress' : 'Weekly Progress',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 200,
-                child: _selectedExerciseId != null 
-                    ? _buildExerciseProgressChart(provider)
-                    : _buildWeeklyProgressChart(dailyData),
-              ),
-            ],
+  Widget _buildTimePeriodButton(String text, {required bool isSelected}) {
+    return GestureDetector(
+      onTap: () => setState(() => _selectedTimePeriod = text),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 24),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF4ECDC4) : Colors.transparent,
+          borderRadius: BorderRadius.circular(50),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey[600],
+            fontWeight: FontWeight.w500,
+            fontSize: 16,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildExerciseChart(List<dynamic> data) {
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: true,
+          horizontalInterval: 15,
+          verticalInterval: 1,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: Colors.grey[300],
+              strokeWidth: 1,
+            );
+          },
+          getDrawingVerticalLine: (value) {
+            return FlLine(
+              color: Colors.grey[300],
+              strokeWidth: 1,
+            );
+          },
+        ),
+        titlesData: FlTitlesData(
+          show: true,
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: 15,
+              getTitlesWidget: (value, meta) {
+                return Text(
+                  value.toInt().toString(),
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                );
+              },
+              reservedSize: 40,
+            ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: 1,
+              getTitlesWidget: (value, meta) {
+                return Text(
+                  'Week ${value.toInt()}',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        borderData: FlBorderData(show: false),
+        minX: 0,
+        maxX: 4,
+        minY: 0,
+        maxY: 90,
+        lineBarsData: [
+          LineChartBarData(
+            spots: const [
+              FlSpot(0, 5),
+              FlSpot(1, 25),
+              FlSpot(2, 45),
+              FlSpot(3, 85),
+              FlSpot(4, 20),
+            ],
+            isCurved: true,
+            color: const Color(0xFF4ECDC4),
+            barWidth: 3,
+            isStrokeCapRound: true,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                return FlDotCirclePainter(
+                  radius: 6,
+                  color: Colors.white,
+                  strokeWidth: 3,
+                  strokeColor: const Color(0xFF4ECDC4),
+                );
+              },
+            ),
+            belowBarData: BarAreaData(
+              show: true,
+              color: const Color(0xFF4ECDC4).withOpacity(0.15),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  const Color(0xFF4ECDC4).withOpacity(0.2),
+                  const Color(0xFF4ECDC4).withOpacity(0.05),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -340,121 +556,5 @@ class _DashboardContentState extends State<DashboardContent> {
         ],
       ),
     );
-  }
-
-  Widget _buildExerciseProgressChart(WorkoutProvider provider) {
-    try {
-      if (_selectedExerciseId == null) {
-        return const Center(child: Text('Select an exercise'));
-      }
-
-      final progressData = provider.getExerciseProgressData(_selectedExerciseId!);
-      if (progressData.isEmpty) {
-        return const Center(child: Text('No data available for this exercise'));
-      }
-
-      return BarChart(
-        BarChartData(
-          alignment: BarChartAlignment.spaceAround,
-          maxY: _getMaxWeight(progressData) * 1.2,
-          titlesData: FlTitlesData(
-            show: true,
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (value, meta) {
-                  if (value >= 0 && value < progressData.length) {
-                    final date = (progressData[value.toInt()]['date'] as DateTime?) ?? DateTime.now();
-                    return Text(DateFormat('MMM d').format(date), style: const TextStyle(color: Colors.grey, fontSize: 12));
-                  }
-                  return const Text('');
-                },
-              ),
-            ),
-          ),
-          gridData: FlGridData(show: true, drawVerticalLine: false),
-          borderData: FlBorderData(show: false),
-          barGroups: progressData.asMap().entries.map((entry) => BarChartGroupData(
-            x: entry.key,
-            barRods: [BarChartRodData(
-              toY: (entry.value['weight'] as num? ?? 0).toDouble(),
-              gradient: LinearGradient(
-                colors: [AppTheme.primaryColor.withOpacity(0.7), AppTheme.primaryColor],
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-              ),
-              width: 16,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-            )],
-          )).toList(),
-        ),
-      );
-    } catch (e) {
-      debugPrint('Exercise chart error: $e');
-      return const Center(child: Text('No data available for this exercise'));
-    }
-  }
-
-  Widget _buildWeeklyProgressChart(List<dynamic> dailyData) {
-    final validData = dailyData.whereType<Map<String, dynamic>>().toList();
-    if (validData.isEmpty) return const Center(child: Text('No weekly data available', style: TextStyle(color: Colors.grey)));
-    
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: _getMaxValue(validData, 'volume') * 1.2,
-        titlesData: FlTitlesData(
-          show: true,
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (value, meta) {
-                if (value >= 0 && value < validData.length) {
-                  return Text(validData[value.toInt()]['day']?.toString() ?? '', style: const TextStyle(color: Colors.grey, fontSize: 12));
-                }
-                return const Text('');
-              },
-            ),
-          ),
-        ),
-        gridData: FlGridData(show: true, drawVerticalLine: false),
-        borderData: FlBorderData(show: false),
-        barGroups: validData.asMap().entries.map((entry) => BarChartGroupData(
-          x: entry.key,
-          barRods: [BarChartRodData(
-            toY: (entry.value['volume'] as num? ?? 0).toDouble(),
-            gradient: LinearGradient(
-              colors: [AppTheme.primaryColor.withOpacity(0.7), AppTheme.primaryColor],
-              begin: Alignment.bottomCenter,
-              end: Alignment.topCenter,
-            ),
-            width: 16,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-          )],
-        )).toList(),
-      ),
-    );
-  }
-
-  double _getMaxValue(List<Map<String, dynamic>> data, String key) {
-    try {
-      return data.fold(0.0, (max, item) {
-        final value = (item[key] as num?)?.toDouble() ?? 0;
-        return value > max ? value : max;
-      }) * 1.2;
-    } catch (e) {
-      return 100;
-    }
-  }
-
-  double _getMaxWeight(List<Map<String, dynamic>> data) {
-    try {
-      return data.fold(0.0, (max, item) {
-        final value = (item['weight'] as num?)?.toDouble() ?? 0;
-        return value > max ? value : max;
-      });
-    } catch (e) {
-      return 100;
-    }
   }
 }

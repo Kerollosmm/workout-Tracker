@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import '../../../core/models/workout.dart';
-import '../../../core/providers/settings_provider.dart';
 import 'package:provider/provider.dart';
+import '../../../core/models/workout.dart';
+import '../../../core/providers/workout_provider.dart';
 
 class WorkoutSummaryCard extends StatefulWidget {
   final Workout workout;
@@ -20,6 +19,7 @@ class WorkoutSummaryCard extends StatefulWidget {
 
 class _WorkoutSummaryCardState extends State<WorkoutSummaryCard> {
   late Map<String, dynamic> _metrics;
+  late Map<String, dynamic> _monthBest;
 
   @override
   void initState() {
@@ -44,27 +44,48 @@ class _WorkoutSummaryCardState extends State<WorkoutSummaryCard> {
       (sum, exercise) => sum + (exercise.sets.length * 60), // Assuming 1 min per set
     );
 
-    // Calculate muscle group distribution efficiently
-    final muscleGroupCounts = widget.workout.exercises.fold<Map<String, int>>(
-      {},
-      (counts, exercise) {
-        counts[exercise.muscleGroup] = (counts[exercise.muscleGroup] ?? 0) + 1;
-        return counts;
-      },
-    );
-
-    final primaryMuscleGroup = muscleGroupCounts.isEmpty
-        ? 'N/A'
-        : muscleGroupCounts.entries
-            .reduce((a, b) => a.value > b.value ? a : b)
-            .key;
-
     _metrics = {
       'totalExercises': totalExercises,
       'totalSets': totalSets,
       'totalWeightLifted': totalWeightLifted,
       'totalDuration': totalDuration,
-      'primaryMuscleGroup': primaryMuscleGroup,
+    };
+  }
+
+  Map<String, dynamic> _calculateMonthBest(WorkoutProvider provider) {
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final endOfMonth = DateTime(now.year, now.month + 1, 0);
+    
+    var bestSets = 0;
+    var bestWeight = 0.0;
+    var bestDuration = 0;
+
+    for (final workout in provider.workouts) {
+      if (workout.date.isAfter(startOfMonth) && workout.date.isBefore(endOfMonth.add(const Duration(days: 1)))) {
+        // Update best sets
+        if (workout.totalSets > bestSets) {
+          bestSets = workout.totalSets;
+        }
+        // Update best weight
+        if (workout.totalWeightLifted > bestWeight) {
+          bestWeight = workout.totalWeightLifted;
+        }
+        // Update best duration
+        final duration = workout.exercises.fold<int>(
+          0,
+          (sum, exercise) => sum + (exercise.sets.length * 60),
+        );
+        if (duration > bestDuration) {
+          bestDuration = duration;
+        }
+      }
+    }
+
+    return {
+      'bestSets': bestSets,
+      'bestWeight': bestWeight,
+      'bestDuration': bestDuration,
     };
   }
 
@@ -115,8 +136,8 @@ class _WorkoutSummaryCardState extends State<WorkoutSummaryCard> {
 
   @override
   Widget build(BuildContext context) {
-    final settingsProvider = Provider.of<SettingsProvider>(context);
-    final dateFormat = DateFormat('MMM dd, yyyy');
+    final workoutProvider = Provider.of<WorkoutProvider>(context);
+    final monthBest = _calculateMonthBest(workoutProvider);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
@@ -130,37 +151,55 @@ class _WorkoutSummaryCardState extends State<WorkoutSummaryCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Activity',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Activity',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'vs Monthly Best',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildProgressIndicator(
-                  value: _metrics['totalSets'] / 80, // Max sets per workout
+                  value: monthBest['bestSets'] > 0 
+                    ? _metrics['totalSets'] / monthBest['bestSets']
+                    : 0,
                   color: Colors.green,
                   icon: Icons.directions_walk,
-                  label: '${_metrics['totalSets']}/80',
+                  label: '${_metrics['totalSets']}/${monthBest['bestSets']}',
                   sublabel: 'Sets',
                 ),
                 _buildProgressIndicator(
-                  value: _metrics['totalWeightLifted'] / 500, // Max weight target
+                  value: monthBest['bestWeight'] > 0 
+                    ? _metrics['totalWeightLifted'] / monthBest['bestWeight']
+                    : 0,
                   color: Colors.orange,
                   icon: Icons.local_fire_department,
-                  label: '${_metrics['totalWeightLifted'].toInt()}/500',
+                  label: '${_metrics['totalWeightLifted'].toInt()}/${monthBest['bestWeight'].toInt()}',
                   sublabel: 'kg',
                 ),
                 _buildProgressIndicator(
-                  value: _metrics['totalDuration'] / (30 * 60), // 30 min target
+                  value: monthBest['bestDuration'] > 0 
+                    ? _metrics['totalDuration'] / monthBest['bestDuration']
+                    : 0,
                   color: Colors.blue,
                   icon: Icons.timer,
-                  label: '${(_metrics['totalDuration'] ~/ 60)}/30',
+                  label: '${(_metrics['totalDuration'] ~/ 60)}/${(monthBest['bestDuration'] ~/ 60)}',
                   sublabel: 'min',
                 ),
               ],
@@ -170,4 +209,4 @@ class _WorkoutSummaryCardState extends State<WorkoutSummaryCard> {
       ),
     );
   }
-}
+} 
