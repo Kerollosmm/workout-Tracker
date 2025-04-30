@@ -31,7 +31,9 @@ class _WorkoutSummaryCardState extends State<WorkoutSummaryCard> {
   void didUpdateWidget(WorkoutSummaryCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.workout != widget.workout) {
-      _calculateMetrics();
+      setState(() {
+        _calculateMetrics();
+      });
     }
   }
 
@@ -134,11 +136,44 @@ class _WorkoutSummaryCardState extends State<WorkoutSummaryCard> {
     );
   }
 
+  Widget _buildIndicators(WorkoutProvider provider) {
+    final monthBest = _calculateMonthBest(provider);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _buildProgressIndicator(
+          value: monthBest['bestSets'] > 0
+            ? _metrics['totalSets'] / monthBest['bestSets']
+            : 0,
+          color: Colors.green,
+          icon: Icons.directions_walk,
+          label: '${_metrics['totalSets']}/${monthBest['bestSets']}',
+          sublabel: 'Sets',
+        ),
+        _buildProgressIndicator(
+          value: monthBest['bestWeight'] > 0
+            ? _metrics['totalWeightLifted'] / monthBest['bestWeight']
+            : 0,
+          color: Colors.orange,
+          icon: Icons.local_fire_department,
+          label: '${_metrics['totalWeightLifted'].toInt()}/${monthBest['bestWeight'].toInt()}',
+          sublabel: 'kg',
+        ),
+        _buildProgressIndicator(
+          value: monthBest['bestDuration'] > 0
+            ? _metrics['totalDuration'] / monthBest['bestDuration']
+            : 0,
+          color: Colors.blue,
+          icon: Icons.timer,
+          label: '${(_metrics['totalDuration'] ~/ 60)}/${(monthBest['bestDuration'] ~/ 60)}',
+          sublabel: 'min',
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final workoutProvider = Provider.of<WorkoutProvider>(context);
-    final monthBest = _calculateMonthBest(workoutProvider);
-
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
       color: const Color(0xFF1C1C1E),
@@ -172,37 +207,8 @@ class _WorkoutSummaryCardState extends State<WorkoutSummaryCard> {
               ],
             ),
             const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildProgressIndicator(
-                  value: monthBest['bestSets'] > 0 
-                    ? _metrics['totalSets'] / monthBest['bestSets']
-                    : 0,
-                  color: Colors.green,
-                  icon: Icons.directions_walk,
-                  label: '${_metrics['totalSets']}/${monthBest['bestSets']}',
-                  sublabel: 'Sets',
-                ),
-                _buildProgressIndicator(
-                  value: monthBest['bestWeight'] > 0 
-                    ? _metrics['totalWeightLifted'] / monthBest['bestWeight']
-                    : 0,
-                  color: Colors.orange,
-                  icon: Icons.local_fire_department,
-                  label: '${_metrics['totalWeightLifted'].toInt()}/${monthBest['bestWeight'].toInt()}',
-                  sublabel: 'kg',
-                ),
-                _buildProgressIndicator(
-                  value: monthBest['bestDuration'] > 0 
-                    ? _metrics['totalDuration'] / monthBest['bestDuration']
-                    : 0,
-                  color: Colors.blue,
-                  icon: Icons.timer,
-                  label: '${(_metrics['totalDuration'] ~/ 60)}/${(monthBest['bestDuration'] ~/ 60)}',
-                  sublabel: 'min',
-                ),
-              ],
+            Consumer<WorkoutProvider>(
+              builder: (context, provider, _) => _buildIndicators(provider),
             ),
           ],
         ),

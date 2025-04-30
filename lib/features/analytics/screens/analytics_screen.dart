@@ -5,6 +5,8 @@ import '../../../core/providers/workout_provider.dart';
 import '../../../core/providers/exercise_provider.dart';
 
 class AnalyticsScreen extends StatefulWidget {
+  const AnalyticsScreen({Key? key}) : super(key: key);
+
   @override
   _AnalyticsScreenState createState() => _AnalyticsScreenState();
 }
@@ -14,6 +16,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   late TabController _tabController;
   String? _selectedExerciseId;
   String _timeFilter = 'Monthly'; // Weekly, Monthly, All Time
+
+  static _AnalyticsScreenState of(BuildContext context) {
+    return context.findAncestorStateOfType<_AnalyticsScreenState>()!;
+  }
 
   @override
   void initState() {
@@ -29,93 +35,34 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final workoutProvider = Provider.of<WorkoutProvider>(context);
-    final exerciseProvider = Provider.of<ExerciseProvider>(context);
-
-    // Automatically select first exercise if none selected
-    if (_selectedExerciseId == null && exerciseProvider.exercises.isNotEmpty) {
-      _selectedExerciseId = exerciseProvider.exercises.first.id;
-    }
-
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Analytics'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [Tab(text: 'Performance'), Tab(text: 'Muscle Groups')],
-        ),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight + 48),
+        child: _buildAppBar(),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          // Performance Tab
-          _buildPerformanceTab(context, workoutProvider, exerciseProvider),
+      body: _buildBody(),
+    );
+  }
 
-          // Muscle Groups Tab
-          _buildMuscleGroupsTab(context, workoutProvider),
+  Widget _buildAppBar() {
+    return AppBar(
+      title: const Text('Analytics'),
+      bottom: TabBar(
+        controller: _tabController,
+        tabs: const [
+          Tab(text: 'Performance'),
+          Tab(text: 'Muscle Groups'),
         ],
       ),
     );
   }
 
-  Widget _buildPerformanceTab(
-    BuildContext context,
-    WorkoutProvider workoutProvider,
-    ExerciseProvider exerciseProvider,
-  ) {
-    return Column(
-      children: [
-        // Exercise Dropdown
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: DropdownButtonFormField<String>(
-            decoration: InputDecoration(
-              labelText: 'Select Exercise',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.fitness_center),
-            ),
-            value: _selectedExerciseId,
-            items:
-                exerciseProvider.exercises.map((exercise) {
-                  return DropdownMenuItem(
-                    value: exercise.id,
-                    child: Text(exercise.name),
-                  );
-                }).toList(),
-            onChanged: (value) {
-              setState(() {
-                _selectedExerciseId = value;
-              });
-            },
-          ),
-        ),
-
-        // Time Filter Chips
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildFilterChip('Weekly', _timeFilter == 'Weekly'),
-              SizedBox(width: 8),
-              _buildFilterChip('Monthly', _timeFilter == 'Monthly'),
-              SizedBox(width: 8),
-              _buildFilterChip('All Time', _timeFilter == 'All Time'),
-            ],
-          ),
-        ),
-
-        // Performance Chart
-        if (_selectedExerciseId != null)
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: _buildPerformanceChart(
-                workoutProvider,
-                _selectedExerciseId!,
-              ),
-            ),
-          ),
+  Widget _buildBody() {
+    return TabBarView(
+      controller: _tabController,
+      children: const [
+        _PerformanceTab(),
+        _MuscleGroupsTab(),
       ],
     );
   }
@@ -153,20 +100,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     final data = provider.getExerciseProgressData(exerciseId, limit: limit);
 
     if (data.isEmpty) {
-      return Center(child: Text('No data available for this exercise'));
+      return const Center(child: Text('No data available for this exercise'));
     }
 
     // Transform to chart data points
-    final spots =
-        data.map((point) {
-          // X-axis is the index (0, 1, 2, ...), Y-axis is the weight
-          final index = data.indexOf(point).toDouble();
-          return FlSpot(index, point['weight'] as double);
-        }).toList();
+    final spots = data.map((point) {
+      // X-axis is the index (0, 1, 2, ...), Y-axis is the weight
+      final index = data.indexOf(point).toDouble();
+      return FlSpot(index, point['weight'] as double);
+    }).toList();
 
     return LineChart(
       LineChartData(
-        gridData: FlGridData(show: true, drawVerticalLine: false),
+        gridData: const FlGridData(show: true, drawVerticalLine: false),
         titlesData: FlTitlesData(
           show: true,
           bottomTitles: AxisTitles(
@@ -176,7 +122,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               getTitlesWidget: (value, meta) {
                 return Text(
                   value.toInt().toString(),
-                  style: TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: 12),
                 );
               },
             ),
@@ -189,9 +135,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
         minX: 0,
         maxX: spots.length - 1.0,
         minY: 0,
-        maxY:
-            spots.map((s) => s.y).reduce((a, b) => a > b ? a : b) *
-            1.2, // 20% higher than max
+        maxY: spots.map((s) => s.y).reduce((a, b) => a > b ? a : b) * 1.2,
         lineBarsData: [
           LineChartBarData(
             spots: spots,
@@ -219,78 +163,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  Widget _buildMuscleGroupsTab(BuildContext context, WorkoutProvider provider) {
-    final muscleGroups = provider.getMuscleGroupDistribution();
-
-    if (muscleGroups.isEmpty) {
-      return Center(child: Text('No workout data available'));
-    }
-
-    return Column(
-      children: [
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: PieChart(
-              PieChartData(
-                sectionsSpace: 2,
-                centerSpaceRadius: 40,
-                sections: _getMuscleGroupSections(muscleGroups),
-              ),
-            ),
-          ),
-        ),
-
-        // Legend
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Wrap(
-            spacing: 16,
-            runSpacing: 8,
-            children:
-                muscleGroups.keys.map((group) {
-                  final color = _getMuscleGroupColor(group);
-                  return Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: color,
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        '$group (${muscleGroups[group]})',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ],
-                  );
-                }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  List<PieChartSectionData> _getMuscleGroupSections(
-    Map<String, int> muscleGroups,
-  ) {
+  List<PieChartSectionData> _getMuscleGroupSections(Map<String, double> muscleGroups) {
     return muscleGroups.entries.map((entry) {
-      final color = _getMuscleGroupColor(entry.key);
-      final value = entry.value.toDouble();
-      final total = muscleGroups.values.fold(0, (sum, count) => sum + count);
-      final percentage = (value / total) * 100;
-
       return PieChartSectionData(
-        color: color,
-        value: value,
-        title: '${percentage.toStringAsFixed(1)}%',
+        value: entry.value,
+        title: '${(entry.value * 100).toStringAsFixed(1)}%',
+        color: _getMuscleGroupColor(entry.key),
         radius: 100,
-        titleStyle: TextStyle(
-          fontSize: 14,
+        titleStyle: const TextStyle(
+          fontSize: 16,
           fontWeight: FontWeight.bold,
           color: Colors.white,
         ),
@@ -299,18 +180,139 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   }
 
   Color _getMuscleGroupColor(String muscleGroup) {
-    // Assign a consistent color for each muscle group
+    // Add more colors as needed
     final colors = {
-      'Chest': Colors.red,
-      'Back': Colors.blue,
+      'Chest': Colors.blue,
+      'Back': Colors.green,
+      'Legs': Colors.red,
       'Shoulders': Colors.orange,
       'Arms': Colors.purple,
-      'Legs': Colors.green,
-      'Core': Colors.yellow[700]!,
-      'Cardio': Colors.pink,
-      'Full Body': Colors.teal,
+      'Core': Colors.teal,
     };
-
     return colors[muscleGroup] ?? Colors.grey;
+  }
+}
+
+class _PerformanceTab extends StatefulWidget {
+  const _PerformanceTab({Key? key}) : super(key: key);
+
+  @override
+  __PerformanceTabState createState() => __PerformanceTabState();
+}
+
+class __PerformanceTabState extends State<_PerformanceTab> {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Consumer<ExerciseProvider>(
+            builder: (context, provider, _) {
+              final exercises = provider.exercises;
+              if (_AnalyticsScreenState.of(context)._selectedExerciseId == null && exercises.isNotEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => setState(() => _AnalyticsScreenState.of(context)._selectedExerciseId = exercises.first.id),
+                );
+              }
+              return DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Select Exercise',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.fitness_center),
+                ),
+                value: _AnalyticsScreenState.of(context)._selectedExerciseId,
+                items: exercises
+                    .map((e) => DropdownMenuItem(value: e.id, child: Text(e.name)))
+                    .toList(),
+                onChanged: (value) => setState(() => _AnalyticsScreenState.of(context)._selectedExerciseId = value),
+              );
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _AnalyticsScreenState.of(context)._buildFilterChip('Weekly', _AnalyticsScreenState.of(context)._timeFilter == 'Weekly'),
+              const SizedBox(width: 8),
+              _AnalyticsScreenState.of(context)._buildFilterChip('Monthly', _AnalyticsScreenState.of(context)._timeFilter == 'Monthly'),
+              const SizedBox(width: 8),
+              _AnalyticsScreenState.of(context)._buildFilterChip('All Time', _AnalyticsScreenState.of(context)._timeFilter == 'All Time'),
+            ],
+          ),
+        ),
+        if (_AnalyticsScreenState.of(context)._selectedExerciseId != null)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Consumer<WorkoutProvider>(
+                builder: (context, provider, _) {
+                  final id = _AnalyticsScreenState.of(context)._selectedExerciseId!;
+                  return _AnalyticsScreenState.of(context)._buildPerformanceChart(provider, id);
+                },
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _MuscleGroupsTab extends StatelessWidget {
+  const _MuscleGroupsTab({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<WorkoutProvider>(
+      builder: (context, provider, _) {
+        final muscleGroups = provider.getMuscleGroupDistribution();
+        if (muscleGroups.isEmpty) {
+          return const Center(child: Text('No workout data available'));
+        }
+        // Convert int values to double
+        final muscleGroupsDouble = Map<String, double>.fromEntries(
+          muscleGroups.entries.map((e) => MapEntry(e.key, e.value.toDouble())),
+        );
+        return Column(
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: PieChart(
+                  PieChartData(
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 40,
+                    sections: _AnalyticsScreenState.of(context)._getMuscleGroupSections(muscleGroupsDouble),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 8,
+                children: muscleGroups.entries.map((entry) {
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 16,
+                        height: 16,
+                        color: _AnalyticsScreenState.of(context)._getMuscleGroupColor(entry.key),
+                      ),
+                      const SizedBox(width: 4),
+                      Text('${entry.key} (${(entry.value * 100).toStringAsFixed(1)}%)'),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

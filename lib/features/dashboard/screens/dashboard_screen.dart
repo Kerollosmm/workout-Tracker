@@ -13,31 +13,27 @@ import '../../history/screens/history_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../../shared/widgets/share_button.dart';
 import '../../../core/providers/exercise_provider.dart';
+import '../../../core/models/exercise.dart';
+import '../../../core/models/workout.dart';
+import '../components/workout_summary_card.dart';
+import '../../../config/themes/app_theme.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  _DashboardScreenState createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
-  
+  final List<String> _titles = ['Dashboard', 'Log', 'Analytics', 'History', 'Settings'];
   final List<Widget> _screens = [
     const DashboardContent(),
     WorkoutLogScreen(),
     AnalyticsScreen(),
     HistoryScreen(),
     SettingsScreen(),
-  ];
-  
-  final List<String> _titles = [
-    'Workout Dashboard',
-    'Log Workout',
-    'Analytics',
-    'History',
-    'Settings',
   ];
 
   @override
@@ -48,40 +44,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: AppTheme.primaryColor,
         elevation: 0,
       ),
-      body: _screens[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
+        onTap: (index) => setState(() => _currentIndex = index),
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppTheme.primaryColor,
         unselectedItemColor: Colors.grey,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.fitness_center),
-            label: 'Log',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.analytics),
-            label: 'Analytics',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'History',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
+          BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Log'),
+          BottomNavigationBarItem(icon: Icon(Icons.analytics), label: 'Analytics'),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
         ],
       ),
+      floatingActionButton: _currentIndex == 0
+        ? FloatingActionButton.extended(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const WorkoutEditorScreen()),
+            ),
+            backgroundColor: AppTheme.primaryColor,
+            icon: const Icon(Icons.add),
+            label: const Text('New Workout'),
+          )
+        : null,
     );
   }
 }
@@ -90,69 +81,55 @@ class DashboardContent extends StatefulWidget {
   const DashboardContent({Key? key}) : super(key: key);
 
   @override
-  State<DashboardContent> createState() => _DashboardContentState();
+  _DashboardContentState createState() => _DashboardContentState();
 }
 
 class _DashboardContentState extends State<DashboardContent> {
-  String? _selectedExerciseId;
   String? _selectedMuscleGroup;
   String _selectedTimePeriod = 'Month';
-  
+
   @override
   Widget build(BuildContext context) {
-    try {
-      final workoutProvider = Provider.of<WorkoutProvider>(context);
-      final exerciseProvider = Provider.of<ExerciseProvider>(context);
-      final stats = workoutProvider.getDashboardStats();
-      final todayStats = (stats['today'] as Map<String, dynamic>?) ?? {};
-      final dailyData = (stats['dailyData'] as List<dynamic>?) ?? [];
+    final stats = context.select<WorkoutProvider, Map<String, dynamic>>(
+      (prov) => prov.getDashboardStats(),
+    );
+    final todayStats = stats['today'] as Map<String, dynamic>? ?? {};
+    final muscleGroups = context.select<ExerciseProvider, List<String>>(
+      (prov) => prov.allMuscleGroups,
+    );
+    final exercises = _selectedMuscleGroup == null
+      ? context.select<ExerciseProvider, List<Exercise>>((prov) => prov.exercises)
+      : context.select<ExerciseProvider, List<Exercise>>(
+          (prov) => prov.getExercisesByMuscleGroup(_selectedMuscleGroup!),
+        );
 
-      // Get muscle groups and exercises
-      final muscleGroups = exerciseProvider.allMuscleGroups;
-      final exercises = _selectedMuscleGroup == null
-          ? exerciseProvider.exercises
-          : exerciseProvider.getExercisesByMuscleGroup(_selectedMuscleGroup!);
-
-      return Scaffold(
-        body: RefreshIndicator(
-          onRefresh: () async {
-            await Future.delayed(const Duration(milliseconds: 300));
-            if (context.mounted) setState(() {});
-          },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeaderSection(todayStats),
-                const SizedBox(height: 16),
-                WorkoutSummaryCard(
-                  workout: workoutProvider.getLatestWorkout() ?? workoutProvider.createEmptyWorkout(),
-                ),
-                const SizedBox(height: 16),
-                _buildQuickActions(),
-                const SizedBox(height: 24),
-                _buildMuscleGroupChart(stats),
-                _buildTodaysWorkouts(workoutProvider),
-                const SizedBox(height: 80),
-              ],
+    return RefreshIndicator(
+      onRefresh: () async {
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (context.mounted) setState(() {});
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeaderSection(todayStats),
+            const SizedBox(height: 16),
+            WorkoutSummaryCard(
+              workout: context.select<WorkoutProvider, Workout>(
+                (prov) => prov.getLatestWorkout() ?? prov.createEmptyWorkout(),
+              ),
             ),
-          ),
+            const SizedBox(height: 16),
+            _buildQuickActions(),
+            const SizedBox(height: 24),
+            _buildMuscleGroupChart(stats),
+            _buildTodaysWorkouts(context.watch<WorkoutProvider>()),
+            const SizedBox(height: 80),
+          ],
         ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const WorkoutEditorScreen()),
-          ),
-          backgroundColor: AppTheme.primaryColor,
-          icon: const Icon(Icons.add),
-          label: const Text('New Workout'),
-        ),
-      );
-    } catch (e) {
-      debugPrint('Dashboard error: $e');
-      return const Center(child: Text('Error loading dashboard data'));
-    }
+      ),
+    );
   }
 
   Widget _buildQuickActions() {

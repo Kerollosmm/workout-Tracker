@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart' as path_provider;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:workout_tracker/config/constants/app_constants.dart';
 import 'package:workout_tracker/features/dashboard/providers/dashboard_provider.dart';
 import 'config/routes/app_routes.dart';
@@ -22,6 +23,9 @@ import 'core/models/body_data.dart';
 import 'core/providers/body_data_provider.dart';
 
 Future<void> initializeApp() async {
+  // Request storage permissions
+  await _requestStoragePermissions();
+
   // Initialize Hive
   final appDocumentDir = await path_provider.getApplicationDocumentsDirectory();
   await Hive.initFlutter(appDocumentDir.path);
@@ -34,11 +38,16 @@ Future<void> initializeApp() async {
   Hive.registerAdapter(UserSettingsAdapter());
   Hive.registerAdapter(BodyDataAdapter());
 
-  // Open Hive boxes
-  await Hive.openBox<Exercise>('exercises');
-  await Hive.openBox<Workout>('workouts');
-  await Hive.openBox<UserSettings>('settings');
-  await Hive.openBox<BodyData>('body_data');
+  // Open Hive boxes with error handling
+  try {
+    await Hive.openBox<Exercise>('exercises');
+    await Hive.openBox<Workout>('workouts');
+    await Hive.openBox<UserSettings>('settings');
+    await Hive.openBox<BodyData>('body_data');
+  } catch (e) {
+    debugPrint('Error opening Hive boxes: $e');
+    // Handle the error appropriately
+  }
 
   // Initialize notification services
   await NotificationService().initNotification();
@@ -59,6 +68,29 @@ Future<void> initializeApp() async {
             ?.pushNamedAndRemoveUntil('/dashboard', (route) => false);
       });
     }
+  }
+}
+
+Future<void> _requestStoragePermissions() async {
+  // Request storage permissions
+  Map<Permission, PermissionStatus> statuses = await [
+    Permission.storage,
+    Permission.manageExternalStorage,
+  ].request();
+
+  // Check if permissions are granted
+  bool allGranted = true;
+  statuses.forEach((permission, status) {
+    if (!status.isGranted) {
+      allGranted = false;
+      debugPrint('Permission $permission not granted: $status');
+    }
+  });
+
+  if (!allGranted) {
+    // Handle case where permissions are not granted
+    debugPrint('Storage permissions not granted');
+    // You might want to show a dialog to the user here
   }
 }
 

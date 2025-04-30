@@ -32,24 +32,39 @@ class AnalyticsProvider with ChangeNotifier {
     // Set default date range (last 30 days)
     _endDate = DateTime.now();
     _startDate = _endDate!.subtract(Duration(days: 30));
-    _clearCache();
+    _smartClearCache();
   }
 
   void _handleWorkoutChanges() {
-    _clearCache();
-    notifyListeners();
-  }
-
-  void _clearCache() {
-    _exerciseDataCache = null;
-    _exerciseCountCache = null;
-    _lastCacheUpdate = null;
+    if (_smartClearCache()) {
+      notifyListeners();
+    }
   }
 
   bool _isCacheValid() {
     if (_lastCacheUpdate == null) return false;
     final now = DateTime.now();
     return now.difference(_lastCacheUpdate!).inMinutes < 5; // Cache valid for 5 minutes
+  }
+
+  /// Clears cache selectively. If [exerciseId] is null, clears all caches.
+  bool _smartClearCache([String? exerciseId]) {
+    if (exerciseId == null) {
+      final hadCache = (_exerciseDataCache?.isNotEmpty ?? false)
+        || (_exerciseCountCache?.isNotEmpty ?? false);
+      _exerciseDataCache = {};
+      _exerciseCountCache = {};
+      _lastCacheUpdate = null;
+      return hadCache;
+      
+    }
+    final removedData = _exerciseDataCache?.remove(exerciseId) != null;
+    final removedCount = _exerciseCountCache?.remove(exerciseId) != null;
+    if (removedData || removedCount) {
+      _lastCacheUpdate = null;
+      return true;
+    }
+    return false;
   }
   
   // Getters
@@ -78,26 +93,26 @@ class AnalyticsProvider with ChangeNotifier {
         break;
     }
     
-    _clearCache();
+    _smartClearCache();
     notifyListeners();
   }
   
   void setSelectedExerciseId(String? exerciseId) {
     _selectedExerciseId = exerciseId;
-    _clearCache();
+    _smartClearCache();
     notifyListeners();
   }
   
   void setSelectedMuscleGroup(String? muscleGroup) {
     _selectedMuscleGroup = muscleGroup;
-    _clearCache();
+    _smartClearCache();
     notifyListeners();
   }
   
   void setCustomDateRange(DateTime start, DateTime end) {
     _startDate = start;
     _endDate = end;
-    _clearCache();
+    _smartClearCache();
     notifyListeners();
   }
   
@@ -107,7 +122,9 @@ class AnalyticsProvider with ChangeNotifier {
     _selectedMuscleGroup = null;
     _timeFilter = 'Monthly';
     _initializeDefaultState();
-    notifyListeners();
+    if (_smartClearCache()) {
+      notifyListeners();
+    }
   }
 
   // Analytics data getters with caching

@@ -1,50 +1,58 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
 
 class RestTimer extends StatefulWidget {
   final int initialSeconds;
   final VoidCallback? onComplete;
-  const RestTimer({Key? key, this.initialSeconds = 60, this.onComplete}) : super(key: key);
+
+  const RestTimer({
+    Key? key,
+    required this.initialSeconds,
+    this.onComplete,
+  }) : super(key: key);
 
   @override
-  State<RestTimer> createState() => _RestTimerState();
+  _RestTimerState createState() => _RestTimerState();
 }
 
-class _RestTimerState extends State<RestTimer> {
-  late int _secondsLeft;
-  Timer? _timer;
+class _RestTimerState extends State<RestTimer> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<int> _countdownAnimation;
   bool _isRunning = false;
 
   @override
   void initState() {
     super.initState();
-    _secondsLeft = widget.initialSeconds;
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: widget.initialSeconds),
+    );
+    _countdownAnimation = StepTween(
+      begin: widget.initialSeconds,
+      end: 0,
+    ).animate(_controller)
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          setState(() => _isRunning = false);
+          widget.onComplete?.call();
+        }
+      });
   }
 
   void _start() {
-    setState(() => _isRunning = true);
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_secondsLeft > 0) {
-        setState(() => _secondsLeft--);
-      } else {
-        _timer?.cancel();
-        setState(() => _isRunning = false);
-        if (widget.onComplete != null) widget.onComplete!();
-      }
-    });
+    if (!_isRunning) {
+      setState(() => _isRunning = true);
+      _controller.forward(from: 0);
+    }
   }
 
   void _reset() {
-    _timer?.cancel();
-    setState(() {
-      _secondsLeft = widget.initialSeconds;
-      _isRunning = false;
-    });
+    _controller.reset();
+    setState(() => _isRunning = false);
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -56,26 +64,56 @@ class _RestTimerState extends State<RestTimer> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Text('Rest Timer', style: Theme.of(context).textTheme.titleMedium),
-            Text('${_secondsLeft ~/ 60}:${(_secondsLeft % 60).toString().padLeft(2, '0')}',
-                style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton(
-                  onPressed: _isRunning ? null : _start,
-                  child: const Text('Start'),
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: _reset,
-                  child: const Text('Reset'),
-                ),
-              ],
-            ),
+            _buildTitle(context),
+            const SizedBox(height: 8),
+            _buildTimerText(),
+            const SizedBox(height: 16),
+            _buildControls(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTitle(BuildContext context) {
+    return Text(
+      'Rest Timer',
+      style: Theme.of(context).textTheme.titleMedium,
+    );
+  }
+
+  Widget _buildTimerText() {
+    return AnimatedBuilder(
+      animation: _countdownAnimation,
+      builder: (context, child) {
+        final seconds = _countdownAnimation.value;
+        final minutes = seconds ~/ 60;
+        final secs = seconds % 60;
+        return Text(
+          '$minutes:${secs.toString().padLeft(2, '0')}',
+          style: const TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildControls() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        ElevatedButton(
+          onPressed: _isRunning ? null : _start,
+          child: const Text('Start'),
+        ),
+        const SizedBox(width: 16),
+        ElevatedButton(
+          onPressed: _reset,
+          child: const Text('Reset'),
+        ),
+      ],
     );
   }
 } 

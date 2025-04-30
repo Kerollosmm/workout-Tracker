@@ -21,4 +21,17 @@ class BodyData extends HiveObject {
     required this.date,
     this.note,
   });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is BodyData &&
+           other.weight == weight &&
+           other.height == height &&
+           other.date == date &&
+           other.note == note;
+  }
+
+  @override
+  int get hashCode => Object.hash(weight, height, date, note);
 } 
