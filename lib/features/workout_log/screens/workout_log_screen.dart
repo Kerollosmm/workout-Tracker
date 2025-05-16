@@ -97,6 +97,8 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
         date: workoutDate,
         exercises: List.from(selectedExercises), // Create a copy
         notes: notes,
+        name: 'Workout ${DateFormat('MMM d, y').format(workoutDate)}',
+        createdAt: _existingWorkout?.createdAt ?? DateTime.now(),
       );
 
       final workoutProvider = Provider.of<WorkoutProvider>(

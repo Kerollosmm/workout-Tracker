@@ -23,7 +23,7 @@ class WorkoutProvider with ChangeNotifier {
 
   bool _isCacheValid() {
     return _lastCacheUpdate != null &&
-           DateTime.now().difference(_lastCacheUpdate!) < _cacheTimeout;
+        DateTime.now().difference(_lastCacheUpdate!) < _cacheTimeout;
   }
 
   List<Workout> get workouts {
@@ -35,42 +35,39 @@ class WorkoutProvider with ChangeNotifier {
 
   List<Workout> _getRelevantWorkouts(DateTime? date) {
     if (date == null) return workouts;
-    
+
     final dayStart = DateTime(date.year, date.month, date.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
-    
-    return workouts.where((w) =>
-      w.date.isAfter(dayStart.subtract(const Duration(seconds: 1))) &&
-      w.date.isBefore(dayEnd)
-    ).toList();
+
+    return workouts
+        .where((w) =>
+            w.date.isAfter(dayStart.subtract(const Duration(seconds: 1))) &&
+            w.date.isBefore(dayEnd))
+        .toList();
   }
 
   double getTotalWeightLifted([DateTime? date]) {
     final relevantWorkouts = _getRelevantWorkouts(date);
-    return relevantWorkouts.fold(0.0, 
-      (total, workout) => total + workout.totalWeightLifted
-    );
+    return relevantWorkouts.fold(
+        0.0, (total, workout) => total + workout.totalWeightLifted);
   }
 
   double getEffectiveWeightLifted([DateTime? date]) {
     final relevantWorkouts = _getRelevantWorkouts(date);
-    return relevantWorkouts.fold(0.0, 
-      (total, workout) => total + workout.effectiveWeightLifted
-    );
+    return relevantWorkouts.fold(
+        0.0, (total, workout) => total + workout.effectiveWeightLifted);
   }
 
   int getTotalSets([DateTime? date]) {
     final relevantWorkouts = _getRelevantWorkouts(date);
-    return relevantWorkouts.fold(0, 
-      (total, workout) => total + workout.totalSets
-    );
+    return relevantWorkouts.fold(
+        0, (total, workout) => total + workout.totalSets);
   }
 
   int getHardSetCount([DateTime? date]) {
     final relevantWorkouts = _getRelevantWorkouts(date);
-    return relevantWorkouts.fold(0, 
-      (total, workout) => total + workout.hardSetCount
-    );
+    return relevantWorkouts.fold(
+        0, (total, workout) => total + workout.hardSetCount);
   }
 
   Future<void> addWorkout(Workout workout) async {
@@ -112,21 +109,22 @@ class WorkoutProvider with ChangeNotifier {
     }
   }
 
-  List<Map<String, dynamic>> getExerciseProgressData(String exerciseId, {int limit = 10}) {
+  List<Map<String, dynamic>> getExerciseProgressData(String exerciseId,
+      {int limit = 10}) {
     final workoutsWithExercise = workouts
-      .where((w) => w.exercises.any((e) => e.exerciseId == exerciseId))
-      .toList()
+        .where((w) => w.exercises.any((e) => e.exerciseId == exerciseId))
+        .toList()
       ..sort((a, b) => a.date.compareTo(b.date));
-    
-    final limitedWorkouts = workoutsWithExercise.length > limit 
-      ? workoutsWithExercise.sublist(workoutsWithExercise.length - limit)
-      : workoutsWithExercise;
+
+    final limitedWorkouts = workoutsWithExercise.length > limit
+        ? workoutsWithExercise.sublist(workoutsWithExercise.length - limit)
+        : workoutsWithExercise;
 
     return limitedWorkouts.map((w) {
-      final exercise = w.exercises.firstWhere((e) => e.exerciseId == exerciseId);
-      final maxWeight = exercise.sets.fold(0.0, 
-        (max, set) => set.weight > max ? set.weight : max
-      );
+      final exercise =
+          w.exercises.firstWhere((e) => e.exerciseId == exerciseId);
+      final maxWeight = exercise.sets
+          .fold(0.0, (max, set) => set.weight > max ? set.weight : max);
       final totalReps = exercise.sets.fold(0, (sum, set) => sum + set.reps);
       final totalSets = exercise.sets.length;
       return {
@@ -134,30 +132,29 @@ class WorkoutProvider with ChangeNotifier {
         'weight': maxWeight,
         'reps': totalReps,
         'sets': totalSets,
-        'volume': exercise.sets.fold(0.0, 
-          (sum, set) => sum + (set.weight * set.reps)
-        ),
+        'volume': exercise.sets
+            .fold(0.0, (sum, set) => sum + (set.weight * set.reps)),
       };
     }).toList();
   }
 
   Map<String, int> getMuscleGroupDistribution() {
     final distribution = <String, int>{};
-    
+
     for (final workout in workouts) {
       for (final exercise in workout.exercises) {
-        distribution[exercise.muscleGroup] = 
-          (distribution[exercise.muscleGroup] ?? 0) + 1;
+        distribution[exercise.muscleGroup] =
+            (distribution[exercise.muscleGroup] ?? 0) + 1;
       }
     }
-    
+
     return distribution;
   }
 
   Map<String, dynamic> getDashboardStats() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
+
     // Initialize default values
     final defaultStats = {
       'workouts': 0,
@@ -167,9 +164,12 @@ class WorkoutProvider with ChangeNotifier {
     };
 
     return {
-      'today': _calculatePeriodStats(_getRelevantWorkouts(today)) ?? defaultStats,
-      'week': _calculatePeriodStats(_getRelevantWorkoutsForDays(7)) ?? defaultStats,
-      'month': _calculatePeriodStats(_getRelevantWorkoutsForDays(30)) ?? defaultStats,
+      'today':
+          _calculatePeriodStats(_getRelevantWorkouts(today)) ?? defaultStats,
+      'week':
+          _calculatePeriodStats(_getRelevantWorkoutsForDays(7)) ?? defaultStats,
+      'month': _calculatePeriodStats(_getRelevantWorkoutsForDays(30)) ??
+          defaultStats,
       'muscleGroupData': getMuscleGroupDistribution(),
       'dailyData': _getWeeklyDailyData(),
     };
@@ -177,7 +177,7 @@ class WorkoutProvider with ChangeNotifier {
 
   Map<String, dynamic>? _calculatePeriodStats(List<Workout> workouts) {
     if (workouts.isEmpty) return null;
-    
+
     return {
       'workouts': workouts.length,
       'sets': workouts.fold(0, (sum, w) => sum + w.totalSets),
@@ -188,12 +188,14 @@ class WorkoutProvider with ChangeNotifier {
 
   List<Workout> _getRelevantWorkoutsForDays(int days) {
     final now = DateTime.now();
-    final startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: days - 1));
-    
-    return workouts.where((w) => 
-      w.date.isAfter(startDate.subtract(const Duration(seconds: 1))) && 
-      w.date.isBefore(now.add(const Duration(days: 1)))
-    ).toList();
+    final startDate = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: days - 1));
+
+    return workouts
+        .where((w) =>
+            w.date.isAfter(startDate.subtract(const Duration(seconds: 1))) &&
+            w.date.isBefore(now.add(const Duration(days: 1))))
+        .toList();
   }
 
   List<Map<String, dynamic>> _getWeeklyDailyData() {
@@ -219,11 +221,13 @@ class WorkoutProvider with ChangeNotifier {
   }
 
   Workout createEmptyWorkout() {
+    final now = DateTime.now();
     return Workout(
       id: const Uuid().v4(),
-      date: DateTime.now(),
+      date: now,
       exercises: [],
-      notes: '',
+      createdAt: now,
+      name: 'New Workout',
     );
   }
 

@@ -1,33 +1,40 @@
 import 'package:hive/hive.dart';
-import 'exercise.dart';
 import 'workout_set.dart';
 part 'workout.g.dart';
 
-@HiveType(typeId: 2)
+@HiveType(typeId: 1)
 class Workout extends HiveObject {
   @HiveField(0)
   final String id;
-  
+
   @HiveField(1)
-  DateTime date;
-  
+  String name;
+
   @HiveField(2)
   List<WorkoutExercise> exercises;
-  
+
   @HiveField(3)
-  int duration;
-  
+  DateTime createdAt;
+
   @HiveField(4)
+  DateTime? completedAt;
+
+  @HiveField(5)
+  DateTime date;
+
+  @HiveField(6)
   String? notes;
-  
+
   Workout({
     required this.id,
-    required this.date,
+    required this.name,
     required this.exercises,
-    this.duration = 0,
+    required this.createdAt,
+    this.completedAt,
+    required this.date,
     this.notes,
   });
-  
+
   // Helper methods to calculate workout stats
   double get totalWeightLifted {
     double total = 0;
@@ -40,13 +47,12 @@ class Workout extends HiveObject {
     }
     return total;
   }
-  
+
   int get totalSets {
     int total = 0;
     for (final exercise in exercises) {
-      total += exercise.sets.where((set) => 
-        set.weight > 0 && set.reps > 0
-      ).length;
+      total +=
+          exercise.sets.where((set) => set.weight > 0 && set.reps > 0).length;
     }
     return total;
   }
@@ -62,61 +68,78 @@ class Workout extends HiveObject {
     }
     return total;
   }
-  
+
   int get hardSetCount {
     int total = 0;
     for (final exercise in exercises) {
-      total += exercise.sets.where((set) => 
-        set.isHardSet && set.weight > 0 && set.reps > 0
-      ).length;
+      total += exercise.sets
+          .where((set) => set.isHardSet && set.weight > 0 && set.reps > 0)
+          .length;
     }
     return total;
   }
 
-  Workout copyWith({
-    String? id,
-    DateTime? date,
-    List<WorkoutExercise>? exercises,
-    int? duration,
-    String? notes,
-  }) {
-    return Workout(
-      id: id ?? this.id,
-      date: date ?? this.date,
-      exercises: exercises ?? List.from(this.exercises),
-      duration: duration ?? this.duration,
-      notes: notes ?? this.notes,
-    );
+  int get totalDuration {
+    return exercises.fold(
+        0, (total, exercise) => total + (exercise.duration ?? 0));
+  }
+  
+  // Added duration getter to fix references to workout.duration
+  int get duration => totalDuration;
+
+  int get completedExercises {
+    return exercises.where((exercise) => exercise.isCompleted).length;
+  }
+
+  double get progress {
+    return exercises.isEmpty ? 0 : completedExercises / exercises.length;
   }
 }
 
-@HiveType(typeId: 3)
-class WorkoutExercise {
+@HiveType(typeId: 2)
+class WorkoutExercise extends HiveObject {
   @HiveField(0)
   String exerciseId;
-  
+
   @HiveField(1)
   String exerciseName;
-  
+
   @HiveField(2)
   String muscleGroup;
-  
+
   @HiveField(3)
   List<WorkoutSet> sets;
-  
+
+  @HiveField(4)
+  String? notes;
+
+  @HiveField(6)
+  int? duration;
+
+  @HiveField(5)
+  bool isCompleted;
+
   WorkoutExercise({
     required this.exerciseId,
     required this.exerciseName,
     required this.muscleGroup,
-    required this.sets,
-  });
+    List<WorkoutSet>? sets,
+    this.notes,
+    this.duration,
+    this.isCompleted = false,
+  }) : this.sets = sets ?? [];
 
-  WorkoutExercise copyWith() {
-    return WorkoutExercise(
-      exerciseId: exerciseId,
-      exerciseName: exerciseName,
-      muscleGroup: muscleGroup,
-      sets: sets.map((s) => s.copyWith()).toList(),
-    );
-  }
+  bool get isHardSet => sets.any((set) => set.isHardSet);
+
+  double get totalWeight =>
+      sets.fold(0.0, (sum, set) => sum + (set.weight * set.reps));
+      
+  // Alias for exerciseName to match the expected 'name' getter
+  String get name => exerciseName;
+  
+  // Return reps from the first set, or 0 if no sets exist
+  int get reps => sets.isNotEmpty ? sets.first.reps : 0;
+  
+  // Return weight from the first set, or 0 if no sets exist
+  double get weight => sets.isNotEmpty ? sets.first.weight : 0.0;
 }

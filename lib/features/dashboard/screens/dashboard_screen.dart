@@ -11,7 +11,6 @@ import '../../analytics/screens/analytics_screen.dart';
 import '../../workout_log/screens/workout_log_screen.dart';
 import '../../history/screens/history_screen.dart';
 import '../../settings/screens/settings_screen.dart';
-import '../../../shared/widgets/share_button.dart';
 import '../../../core/providers/exercise_provider.dart';
 import '../../../core/models/exercise.dart';
 import '../../../core/models/workout.dart';

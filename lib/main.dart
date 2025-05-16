@@ -5,6 +5,8 @@ import 'package:path_provider/path_provider.dart' as path_provider;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:workout_tracker/config/constants/app_constants.dart';
 import 'package:workout_tracker/features/dashboard/providers/dashboard_provider.dart';
+import 'package:workout_tracker/features/focus_mode/models/focus_session.dart';
+import 'package:workout_tracker/features/focus_mode/providers/focus_mode_provider.dart';
 import 'config/routes/app_routes.dart';
 import 'config/themes/app_theme.dart';
 import 'core/models/exercise.dart';
@@ -37,6 +39,7 @@ Future<void> initializeApp() async {
   Hive.registerAdapter(WorkoutExerciseAdapter());
   Hive.registerAdapter(UserSettingsAdapter());
   Hive.registerAdapter(BodyDataAdapter());
+  Hive.registerAdapter(FocusSessionAdapter());
 
   // Open Hive boxes with error handling
   try {
@@ -44,6 +47,7 @@ Future<void> initializeApp() async {
     await Hive.openBox<Workout>('workouts');
     await Hive.openBox<UserSettings>('settings');
     await Hive.openBox<BodyData>('body_data');
+    await Hive.openBox<FocusSession>('focus_sessions');
   } catch (e) {
     debugPrint('Error opening Hive boxes: $e');
     // Handle the error appropriately
@@ -116,44 +120,45 @@ class MyApp extends StatelessWidget {
               ),
               ChangeNotifierProvider(create: (_) => ExerciseProvider()),
               ChangeNotifierProvider(
-                create:
-                    (context) => AnalyticsProvider(
-                      Provider.of<WorkoutProvider>(context, listen: false),
-                    ),
+                create: (context) => AnalyticsProvider(
+                  Provider.of<WorkoutProvider>(context, listen: false),
+                ),
               ),
               ChangeNotifierProvider(
-                create:
-                    (context) => DashboardProvider(
-                      Provider.of<WorkoutProvider>(context, listen: false),
-                    ),
+                create: (context) => DashboardProvider(
+                  Provider.of<WorkoutProvider>(context, listen: false),
+                ),
               ),
               ChangeNotifierProvider(
-                create:
-                    (context) => SettingsProvider(
-                      Provider.of<ExerciseProvider>(context, listen: false),
-                      Provider.of<AnalyticsProvider>(context, listen: false),
-                      Provider.of<DashboardProvider>(context, listen: false),
-                    ),
+                create: (context) => SettingsProvider(
+                  Provider.of<ExerciseProvider>(context, listen: false),
+                  Provider.of<AnalyticsProvider>(context, listen: false),
+                  Provider.of<DashboardProvider>(context, listen: false),
+                ),
               ),
               ChangeNotifierProvider(
                 create: (_) => BodyDataProvider(),
+              ),
+              ChangeNotifierProvider(
+                create: (_) => FocusModeProvider(
+                  Hive.box<FocusSession>('focus_sessions'),
+                ),
               ),
             ],
             child: Consumer<SettingsProvider>(
               builder: (context, settingsProvider, _) {
                 return MaterialApp(
-                  navigatorKey:
-                      NotificationService.navigatorKey,
+                  navigatorKey: NotificationService.navigatorKey,
                   title: 'Workout Tracker Pro',
                   theme: AppTheme.lightTheme,
                   darkTheme: AppTheme.darkTheme,
-                  themeMode:
-                      settingsProvider.isDarkMode
-                          ? ThemeMode.dark
-                          : ThemeMode.light,
+                  themeMode: settingsProvider.isDarkMode
+                      ? ThemeMode.dark
+                      : ThemeMode.light,
                   routes: AppRoutes.routes,
                   debugShowCheckedModeBanner: false,
-                  initialRoute: '/dashboard',
+                  initialRoute:
+                      settingsProvider.dateOfBirth == null ? '/' : '/dashboard',
                 );
               },
             ),

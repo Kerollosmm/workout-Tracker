@@ -3,9 +3,8 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  flutter_timezone
   permission_handler_windows
-  share_plus
+  screen_brightness_windows
   url_launcher_windows
 )
 

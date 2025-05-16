@@ -295,7 +295,6 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
           ],
           lineTouchData: LineTouchData(
             touchTooltipData: LineTouchTooltipData(
-              getTooltipColor: (touchedSpots) => Colors.black.withOpacity(0.8),
               fitInsideHorizontally: true,
               fitInsideVertically: true,
               tooltipRoundedRadius: 4.0,
