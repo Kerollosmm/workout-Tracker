@@ -30,19 +30,18 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
     if (_isEditing) {
       _workout = Workout(
         id: widget.workout!.id,
+        name: widget.workout!.name,
         date: widget.workout!.date,
         exercises: List.from(widget.workout!.exercises),
-        duration: widget.workout!.duration,
-        notes: widget.workout!.notes,
+        createdAt: widget.workout!.createdAt,
       );
-      _notesController.text = _workout.notes ?? '';
     } else {
       _workout = Workout(
-        id: UniqueKey().toString(),
+        id: _uuid.v4(),
+        name: '',
         date: DateTime.now(),
         exercises: [],
-        duration: 0,
-        notes: '',
+        createdAt: DateTime.now(),
       );
     }
   }
@@ -54,7 +53,8 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
   }
 
   void _addExercise() async {
-    final exerciseProvider = Provider.of<ExerciseProvider>(context, listen: false);
+    final exerciseProvider =
+        Provider.of<ExerciseProvider>(context, listen: false);
     final exercises = exerciseProvider.exercises;
 
     final selectedExercise = await showDialog<WorkoutExercise>(
@@ -120,7 +120,7 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
 
   void _editExerciseSets(int exerciseIndex) async {
     final exercise = _workout.exercises[exerciseIndex];
-    
+
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -180,7 +180,8 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
                                   setDialogState(() {
                                     exercise.sets.removeAt(setIndex);
                                   });
-                                  setState(() {}); // Trigger rebuild of main screen
+                                  setState(
+                                      () {}); // Trigger rebuild of main screen
                                 },
                               ),
                             ],
@@ -224,9 +225,8 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
 
   Future<void> _saveWorkout() async {
     if (_formKey.currentState!.validate()) {
-      _workout.notes = _notesController.text;
-
-      final workoutProvider = Provider.of<WorkoutProvider>(context, listen: false);
+      final workoutProvider =
+          Provider.of<WorkoutProvider>(context, listen: false);
 
       try {
         if (_isEditing) {
@@ -239,7 +239,8 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Workout saved successfully')),
           );
-          Navigator.of(context).pop(true); // Return true to indicate successful save
+          Navigator.of(context)
+              .pop(true); // Return true to indicate successful save
         }
       } catch (e) {
         if (mounted) {
@@ -266,7 +267,8 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
           ),
           TextButton(
             onPressed: () async {
-              final workoutProvider = Provider.of<WorkoutProvider>(context, listen: false);
+              final workoutProvider =
+                  Provider.of<WorkoutProvider>(context, listen: false);
               await workoutProvider.deleteWorkout(_workout.id);
               if (mounted) {
                 Navigator.of(context).pop(); // Close dialog

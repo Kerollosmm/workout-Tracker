@@ -33,4 +33,14 @@ class Exercise extends HiveObject {
     this.isCustom = false,
     this.iconPath,
   });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Exercise &&
+          other.id == id &&
+          other.name == name;
+
+  @override
+  int get hashCode => Object.hash(id, name);
 }

@@ -39,6 +39,10 @@ class _WorkoutSummaryCardState extends State<WorkoutSummaryCard> {
     final totalExercises = widget.workout.exercises.length;
     final totalSets = widget.workout.totalSets;
     final totalWeightLifted = widget.workout.totalWeightLifted;
+    final totalDuration = widget.workout.exercises.fold<int>(
+      0,
+      (sum, exercise) => sum + (exercise.sets.length * 60), // Assuming 1 min per set
+    );
 
     // Calculate muscle group distribution efficiently
     final muscleGroupCounts = widget.workout.exercises.fold<Map<String, int>>(
@@ -59,8 +63,54 @@ class _WorkoutSummaryCardState extends State<WorkoutSummaryCard> {
       'totalExercises': totalExercises,
       'totalSets': totalSets,
       'totalWeightLifted': totalWeightLifted,
+      'totalDuration': totalDuration,
       'primaryMuscleGroup': primaryMuscleGroup,
     };
+  }
+
+  Widget _buildProgressIndicator({
+    required double value,
+    required Color color,
+    required IconData icon,
+    required String label,
+    required String sublabel,
+  }) {
+    return Column(
+      children: [
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox(
+              width: 60,
+              height: 60,
+              child: CircularProgressIndicator(
+                value: value.clamp(0.0, 1.0),
+                strokeWidth: 8,
+                backgroundColor: color.withOpacity(0.2),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+            ),
+            Icon(icon, color: color, size: 24),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          sublabel,
+          style: TextStyle(
+            color: Colors.grey[400],
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -69,135 +119,55 @@ class _WorkoutSummaryCardState extends State<WorkoutSummaryCard> {
     final dateFormat = DateFormat('MMM dd, yyyy');
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-      elevation: 1.5,
+      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      color: const Color(0xFF1C1C1E),
+      elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(18),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            /// Header
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.08),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(18),
-                  topRight: Radius.circular(18),
-                ),
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                      const SizedBox(width: 6),
-                      Text(
-                        dateFormat.format(widget.workout.date),
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  /// Stats
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildStat(context, '${_metrics['totalExercises']}', 'Exercises'),
-                      _buildStat(context, '${_metrics['totalSets']}', 'Sets'),
-                      _buildStat(
-                        context,
-                        '${_metrics['totalWeightLifted'].toStringAsFixed(0)}',
-                        settingsProvider.weightUnit,
-                      ),
-                    ],
-                  ),
-                ],
+            const Text(
+              'Activity',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
               ),
             ),
-
-            /// Exercises List Preview
-            if (widget.workout.exercises.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ...widget.workout.exercises.take(2).map(
-                      (exercise) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.fitness_center, size: 16, color: Colors.grey),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                exercise.exerciseName,
-                                style: Theme.of(context).textTheme.bodyMedium,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            Text(
-                              '${exercise.sets.length} sets',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (widget.workout.exercises.length > 2)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          '+ ${widget.workout.exercises.length - 2} more exercises',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).primaryColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                  ],
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildProgressIndicator(
+                  value: _metrics['totalSets'] / 80, // Max sets per workout
+                  color: Colors.green,
+                  icon: Icons.directions_walk,
+                  label: '${_metrics['totalSets']}/80',
+                  sublabel: 'Sets',
                 ),
-              ),
-              const SizedBox(height: 16),
-            ],
+                _buildProgressIndicator(
+                  value: _metrics['totalWeightLifted'] / 500, // Max weight target
+                  color: Colors.orange,
+                  icon: Icons.local_fire_department,
+                  label: '${_metrics['totalWeightLifted'].toInt()}/500',
+                  sublabel: 'kg',
+                ),
+                _buildProgressIndicator(
+                  value: _metrics['totalDuration'] / (30 * 60), // 30 min target
+                  color: Colors.blue,
+                  icon: Icons.timer,
+                  label: '${(_metrics['totalDuration'] ~/ 60)}/30',
+                  sublabel: 'min',
+                ),
+              ],
+            ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildStat(BuildContext context, String value, String label) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
-              ?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(color: Colors.grey[600]),
-        ),
-      ],
     );
   }
 }

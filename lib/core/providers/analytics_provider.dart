@@ -9,63 +9,82 @@ import 'workout_provider.dart';
 
 class AnalyticsProvider with ChangeNotifier {
   final WorkoutProvider _workoutProvider;
-  
+
   // Filters
   String _timeFilter = 'Monthly'; // Weekly, Monthly, All Time
   String? _selectedExerciseId;
   String? _selectedMuscleGroup;
   DateTime? _startDate;
   DateTime? _endDate;
-  
+
   // Cache
-  Map<String, List<Map<String, dynamic>>>? _exerciseDataCache;
-  Map<String, int>? _exerciseCountCache;
+  final Map<String, List<Map<String, dynamic>>> _exerciseDataCache = {};
+  final Map<String, int> _exerciseCountCache = {};
   DateTime? _lastCacheUpdate;
-  
+
   AnalyticsProvider(this._workoutProvider) {
     _initializeDefaultState();
-    // Listen to workout changes
-    _workoutProvider.addListener(_handleWorkoutChanges);
+    // Listen to workout changes and clear cache
+    _workoutProvider.addListener(() {
+      _smartClearCache();
+      notifyListeners();
+    });
   }
 
   void _initializeDefaultState() {
     // Set default date range (last 30 days)
     _endDate = DateTime.now();
     _startDate = _endDate!.subtract(Duration(days: 30));
-    _clearCache();
+    _smartClearCache();
   }
 
   void _handleWorkoutChanges() {
-    _clearCache();
-    notifyListeners();
-  }
-
-  void _clearCache() {
-    _exerciseDataCache = null;
-    _exerciseCountCache = null;
-    _lastCacheUpdate = null;
+    if (_smartClearCache()) {
+      notifyListeners();
+    }
   }
 
   bool _isCacheValid() {
     if (_lastCacheUpdate == null) return false;
     final now = DateTime.now();
-    return now.difference(_lastCacheUpdate!).inMinutes < 5; // Cache valid for 5 minutes
+    return now.difference(_lastCacheUpdate!).inMinutes <
+        5; // Cache valid for 5 minutes
   }
-  
+
+  /// Clears cache selectively. If [exerciseId] is null, clears all caches.
+  bool _smartClearCache([String? exerciseId]) {
+    if (exerciseId == null) {
+      final hadCache =
+          _exerciseDataCache.isNotEmpty || _exerciseCountCache.isNotEmpty;
+      _exerciseDataCache.clear();
+      _exerciseCountCache.clear();
+      _lastCacheUpdate = null;
+      return hadCache;
+    }
+
+    final removedData = _exerciseDataCache.remove(exerciseId) != null;
+    final removedCount = _exerciseCountCache.remove(exerciseId) != null;
+    if (removedData || removedCount) {
+      _lastCacheUpdate = null;
+      return true;
+    }
+    return false;
+  }
+
   // Getters
   String get timeFilter => _timeFilter;
   String? get selectedExerciseId => _selectedExerciseId;
   String? get selectedMuscleGroup => _selectedMuscleGroup;
   DateTime? get startDate => _startDate;
   DateTime? get endDate => _endDate;
-  
+
   // Setters
   void setTimeFilter(String filter) {
     _timeFilter = filter;
-    
+
     // Update date range based on filter
     _endDate = DateTime.now();
-    
+
     switch (filter) {
       case 'Weekly':
         _startDate = _endDate!.subtract(Duration(days: 7));
@@ -77,89 +96,90 @@ class AnalyticsProvider with ChangeNotifier {
         _startDate = null; // No start date limit
         break;
     }
-    
-    _clearCache();
+
+    _smartClearCache();
     notifyListeners();
   }
-  
+
   void setSelectedExerciseId(String? exerciseId) {
     _selectedExerciseId = exerciseId;
-    _clearCache();
+    _smartClearCache();
     notifyListeners();
   }
-  
+
   void setSelectedMuscleGroup(String? muscleGroup) {
     _selectedMuscleGroup = muscleGroup;
-    _clearCache();
+    _smartClearCache();
     notifyListeners();
   }
-  
+
   void setCustomDateRange(DateTime start, DateTime end) {
     _startDate = start;
     _endDate = end;
-    _clearCache();
+    _smartClearCache();
     notifyListeners();
   }
-  
+
   // Reset analytics state
   void resetState() {
     _selectedExerciseId = null;
     _selectedMuscleGroup = null;
     _timeFilter = 'Monthly';
     _initializeDefaultState();
-    notifyListeners();
+    if (_smartClearCache()) {
+      notifyListeners();
+    }
   }
 
   // Analytics data getters with caching
   List<FlSpot> getExerciseProgressChartData() {
     if (_selectedExerciseId == null) return [];
-    
+
     final data = getExerciseProgressData(_selectedExerciseId!);
-    
+
     return data.asMap().entries.map((entry) {
       return FlSpot(entry.key.toDouble(), entry.value['weight'] as double);
     }).toList();
   }
-  
+
   List<Map<String, dynamic>> getExerciseProgressData(String exerciseId) {
     // Check cache first
-    if (_isCacheValid() && 
-        _exerciseDataCache != null && 
+    if (_isCacheValid() &&
+        _exerciseDataCache != null &&
         _exerciseDataCache!.containsKey(exerciseId)) {
       return List<Map<String, dynamic>>.from(_exerciseDataCache![exerciseId]!);
     }
-    
+
     final workouts = getFilteredWorkouts();
     final result = <Map<String, dynamic>>[];
-    
+
     // Find workouts containing this exercise
-    final workoutsWithExercise = workouts.where((w) => 
-      w.exercises.any((e) => e.exerciseId == exerciseId)
-    ).toList();
-    
+    final workoutsWithExercise = workouts
+        .where((w) => w.exercises.any((e) => e.exerciseId == exerciseId))
+        .toList();
+
     // Sort by date
     workoutsWithExercise.sort((a, b) => a.date.compareTo(b.date));
-    
+
     for (var workout in workoutsWithExercise) {
-      final exercise = workout.exercises.firstWhere(
-        (e) => e.exerciseId == exerciseId,
-        orElse: () => throw Exception('Exercise not found'),
-      );
-      
-      if (exercise.sets.isNotEmpty) {
+      final exerciseOpt =
+          workout.exercises.firstWhereOrNull((e) => e.exerciseId == exerciseId);
+
+      if (exerciseOpt == null) continue;
+
+      if (exerciseOpt.sets.isNotEmpty) {
         // Find maximum weight used in the exercise
-        final maxWeightSet = exercise.sets.reduce((curr, next) => 
-          curr.weight > next.weight ? curr : next
-        );
-        
+        final maxWeightSet = exerciseOpt.sets
+            .reduce((curr, next) => curr.weight > next.weight ? curr : next);
+
         // Track both max weight and total volume
         double totalVolume = 0;
-        for (final set in exercise.sets) {
+        for (final set in exerciseOpt.sets) {
           if (set.weight > 0 && set.reps > 0) {
             totalVolume += (set.weight * set.reps);
           }
         }
-        
+
         result.add({
           'date': workout.date,
           'weight': maxWeightSet.weight,
@@ -169,15 +189,14 @@ class AnalyticsProvider with ChangeNotifier {
         });
       }
     }
-    
+
     // Cache the results
-    _exerciseDataCache ??= {};
-    _exerciseDataCache![exerciseId] = result;
+    _exerciseDataCache[exerciseId] = result;
     _lastCacheUpdate = DateTime.now();
-    
+
     return result;
   }
-  
+
   // Get the most trained exercise
   Map<String, dynamic> getMostTrainedExercise() {
     // Use cache if valid
@@ -188,7 +207,7 @@ class AnalyticsProvider with ChangeNotifier {
 
     // Calculate exercise frequencies
     final exerciseCounts = <String, Map<String, dynamic>>{};
-    
+
     for (final workout in _workoutProvider.workouts) {
       for (final exercise in workout.exercises) {
         if (!exerciseCounts.containsKey(exercise.exerciseId)) {
@@ -198,15 +217,15 @@ class AnalyticsProvider with ChangeNotifier {
             'count': 0,
           };
         }
-        exerciseCounts[exercise.exerciseId]!['count'] = 
-          (exerciseCounts[exercise.exerciseId]!['count'] as int) + 1;
+        exerciseCounts[exercise.exerciseId]!['count'] =
+            (exerciseCounts[exercise.exerciseId]!['count'] as int) + 1;
       }
     }
 
-    // Cache the counts
-    _exerciseCountCache = {};
+    // Update the cache
+    _exerciseCountCache.clear();
     for (final entry in exerciseCounts.entries) {
-      _exerciseCountCache![entry.key] = entry.value['count'] as int;
+      _exerciseCountCache[entry.key] = entry.value['count'] as int;
     }
     _lastCacheUpdate = DateTime.now();
 
@@ -220,7 +239,8 @@ class AnalyticsProvider with ChangeNotifier {
     }
 
     final mostTrainedId = exerciseCounts.entries
-        .reduce((a, b) => (a.value['count'] as int) > (b.value['count'] as int) ? a : b)
+        .reduce((a, b) =>
+            (a.value['count'] as int) > (b.value['count'] as int) ? a : b)
         .key;
 
     return exerciseCounts[mostTrainedId]!;
@@ -264,28 +284,33 @@ class AnalyticsProvider with ChangeNotifier {
   List<Workout> getFilteredWorkouts() {
     // Start with all workouts
     List<Workout> filteredWorkouts = _workoutProvider.workouts;
-    
+
     // Apply date filter if set
     if (_startDate != null) {
-      filteredWorkouts = filteredWorkouts.where((w) => 
-        w.date.isAfter(_startDate!) || w.date.isAtSameMomentAs(_startDate!)
-      ).toList();
+      filteredWorkouts = filteredWorkouts
+          .where((w) =>
+              w.date.isAfter(_startDate!) ||
+              w.date.isAtSameMomentAs(_startDate!))
+          .toList();
     }
-    
+
     if (_endDate != null) {
-      final endOfDay = DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59);
-      filteredWorkouts = filteredWorkouts.where((w) => 
-        w.date.isBefore(endOfDay) || w.date.isAtSameMomentAs(endOfDay)
-      ).toList();
+      final endOfDay =
+          DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59);
+      filteredWorkouts = filteredWorkouts
+          .where((w) =>
+              w.date.isBefore(endOfDay) || w.date.isAtSameMomentAs(endOfDay))
+          .toList();
     }
-    
+
     // Apply muscle group filter if set
     if (_selectedMuscleGroup != null) {
-      filteredWorkouts = filteredWorkouts.where((w) => 
-        w.exercises.any((e) => e.muscleGroup == _selectedMuscleGroup)
-      ).toList();
+      filteredWorkouts = filteredWorkouts
+          .where((w) =>
+              w.exercises.any((e) => e.muscleGroup == _selectedMuscleGroup))
+          .toList();
     }
-    
+
     return filteredWorkouts;
   }
 }

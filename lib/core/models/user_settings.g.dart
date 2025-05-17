@@ -8,7 +8,7 @@ part of 'user_settings.dart';
 
 class UserSettingsAdapter extends TypeAdapter<UserSettings> {
   @override
-  final int typeId = 4;
+  final int typeId = 3;
 
   @override
   UserSettings read(BinaryReader reader) {
@@ -17,28 +17,43 @@ class UserSettingsAdapter extends TypeAdapter<UserSettings> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return UserSettings(
-      language: fields[0] as String,
-      weightUnit: fields[1] as String,
-      isDarkMode: fields[2] as bool,
-      notificationDays: (fields[3] as List).cast<String>(),
-      notificationTime: fields[4] as String?,
+      isDarkMode: fields[0] as bool,
+      notificationDays: (fields[1] as List).cast<String>(),
+      notificationTime: fields[2] as String?,
+      dateOfBirth: fields[3] as DateTime?,
+      sex: fields[4] as String,
+      height: fields[5] as String,
+      weight: fields[6] as double,
+      isMetric: fields[7] as bool,
+      language: fields[8] as String,
+      weightUnit: fields[9] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, UserSettings obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(10)
       ..writeByte(0)
-      ..write(obj.language)
-      ..writeByte(1)
-      ..write(obj.weightUnit)
-      ..writeByte(2)
       ..write(obj.isDarkMode)
-      ..writeByte(3)
+      ..writeByte(1)
       ..write(obj.notificationDays)
+      ..writeByte(2)
+      ..write(obj.notificationTime)
+      ..writeByte(3)
+      ..write(obj.dateOfBirth)
       ..writeByte(4)
-      ..write(obj.notificationTime);
+      ..write(obj.sex)
+      ..writeByte(5)
+      ..write(obj.height)
+      ..writeByte(6)
+      ..write(obj.weight)
+      ..writeByte(7)
+      ..write(obj.isMetric)
+      ..writeByte(8)
+      ..write(obj.language)
+      ..writeByte(9)
+      ..write(obj.weightUnit);
   }
 
   @override

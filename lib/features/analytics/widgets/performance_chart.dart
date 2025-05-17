@@ -119,7 +119,7 @@ class PerformanceChartProgress extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 8.0),
       child: SideTitleWidget(
-        meta: meta,
+        axisSide: AxisSide.bottom,
         child: Text(
           DateFormat('MMM d').format(date),
           style: TextStyle(
@@ -134,7 +134,7 @@ class PerformanceChartProgress extends StatelessWidget {
 
   Widget _buildValueTitle(double value, SettingsProvider settings, TitleMeta meta) {
     return SideTitleWidget(
-      meta: meta,
+      axisSide: AxisSide.left,
       child: Text(
         '${value.toStringAsFixed(settings.weightUnit == 'kg' ? 1 : 0)}$valueUnit',
         style: TextStyle(
