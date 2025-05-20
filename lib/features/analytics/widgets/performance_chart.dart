@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:workout_tracker/config/constants/app_constants.dart';
 import '../../../config/themes/app_theme.dart';
-// import '../../../services/localization_service.dart'; // Commenting out due to missing file
 import '../../../core/providers/settings_provider.dart';
 
 class PerformanceChartProgress extends StatelessWidget {
@@ -90,8 +89,8 @@ class PerformanceChartProgress extends StatelessWidget {
   FlTitlesData _buildTitlesData(SettingsProvider settings) {
     return FlTitlesData(
       show: true,
-      rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       bottomTitles: AxisTitles(
         sideTitles: SideTitles(
           showTitles: true,
@@ -125,7 +124,7 @@ class PerformanceChartProgress extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: AppTheme.textSecondaryLight.withOpacity(0.7),
+            color: AppTheme.textSecondaryLight.withAlpha(179),
           ),
         ),
       ),
@@ -140,7 +139,7 @@ class PerformanceChartProgress extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w500,
-          color: AppTheme.textSecondaryLight.withOpacity(0.7),
+          color: AppTheme.textSecondaryLight.withAlpha(179),
         ),
       ),
     );
@@ -172,8 +171,8 @@ class PerformanceChartProgress extends StatelessWidget {
           show: true,
           gradient: LinearGradient(
             colors: [
-              chartColor.withOpacity(0.3),
-              chartColor.withOpacity(0.05),
+              chartColor.withAlpha(77),
+              chartColor.withAlpha(13),
             ],
             stops: const [0.0, 0.8],
             begin: Alignment.topCenter,
@@ -195,9 +194,9 @@ class PerformanceChartProgress extends StatelessWidget {
             FlSpot(0, average),
             FlSpot((data.length - 1).toDouble(), average)
           ],
-          color: chartColor.withOpacity(0.5),
+          color: chartColor.withAlpha(128),
           barWidth: 1,
-          dashArray: [5, 5],
+          dashArray: const [5, 5],
           isCurved: false,
           dotData: const FlDotData(show: false),
         ),
@@ -211,7 +210,7 @@ class PerformanceChartProgress extends StatelessWidget {
     return LineTouchData(
       handleBuiltInTouches: true,
       touchTooltipData: LineTouchTooltipData(
-        tooltipBorder: BorderSide(color: AppTheme.primaryColor.withOpacity(0.1)),
+        tooltipBorder: BorderSide(color: AppTheme.primaryColor.withAlpha(26)),
         tooltipRoundedRadius: 8,
         tooltipPadding: const EdgeInsets.all(8),
         fitInsideHorizontally: true,
@@ -222,7 +221,7 @@ class PerformanceChartProgress extends StatelessWidget {
           return LineTooltipItem(
             '${DateFormat.yMMMd().format(date)}\n'
             '${spot.y.toStringAsFixed(settings.weightUnit == 'kg' ? 1 : 0)}$valueUnit',
-            TextStyle(
+            const TextStyle(
               color: AppTheme.textPrimaryLight,
               fontWeight: FontWeight.w500,
               fontSize: 12,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class RestTimer extends StatefulWidget {
   final int initialSeconds;
@@ -18,6 +19,7 @@ class _RestTimerState extends State<RestTimer> with SingleTickerProviderStateMix
   late final AnimationController _controller;
   late final Animation<int> _countdownAnimation;
   bool _isRunning = false;
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
@@ -33,9 +35,25 @@ class _RestTimerState extends State<RestTimer> with SingleTickerProviderStateMix
       ..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
           setState(() => _isRunning = false);
+          _playCompletionSound();
           widget.onComplete?.call();
         }
       });
+  }
+
+  Future<void> _playCompletionSound() async {
+    try {
+      await _audioPlayer.play(AssetSource('audio/WBNHUUloBm4.mp3'));
+    } catch (e) {
+      debugPrint('Error playing sound: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   void _start() {
@@ -48,12 +66,6 @@ class _RestTimerState extends State<RestTimer> with SingleTickerProviderStateMix
   void _reset() {
     _controller.reset();
     setState(() => _isRunning = false);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 
   @override
@@ -116,4 +128,4 @@ class _RestTimerState extends State<RestTimer> with SingleTickerProviderStateMix
       ],
     );
   }
-} 
+}

@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:workout_tracker/config/constants/app_constants.dart';
-import 'app_theme.dart';
 
 class DarkTheme {
   static ThemeData get theme {

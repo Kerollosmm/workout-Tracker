@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../../core/models/workout.dart';
-import '../../../core/providers/settings_provider.dart';
 import 'package:provider/provider.dart';
+import '../../../core/models/workout.dart'; // Keep if workout prop is still used, otherwise remove
+import '../../../core/providers/settings_provider.dart'; // Keep if settingsProvider is still used
+import '../providers/dashboard_provider.dart'; // Import DashboardProvider
 
 class WorkoutSummaryCard extends StatefulWidget {
-  final Workout workout;
+  // final Workout workout; // Workout prop might not be needed if data comes from DashboardProvider
   final VoidCallback? onTap;
 
   const WorkoutSummaryCard({
     Key? key,
-    required this.workout,
+    // required this.workout, // Workout prop might not be needed
     this.onTap,
   }) : super(key: key);
 
@@ -19,54 +21,26 @@ class WorkoutSummaryCard extends StatefulWidget {
 }
 
 class _WorkoutSummaryCardState extends State<WorkoutSummaryCard> {
-  late Map<String, dynamic> _metrics;
+  // _metrics might not be needed if we directly use provider data in build
+  // late Map<String, dynamic> _metrics; 
 
-  @override
-  void initState() {
-    super.initState();
-    _calculateMetrics();
-  }
+  // initState and didUpdateWidget might not be needed if we fetch data in build method directly from provider
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   // _calculateMetrics(); // We will get data from provider
+  // }
 
-  @override
-  void didUpdateWidget(WorkoutSummaryCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.workout != widget.workout) {
-      _calculateMetrics();
-    }
-  }
+  // @override
+  // void didUpdateWidget(WorkoutSummaryCard oldWidget) {
+  //   super.didUpdateWidget(oldWidget);
+  //   // if (oldWidget.workout != widget.workout) { // Condition might change based on how data is passed
+  //   //   // _calculateMetrics();
+  //   // }
+  // }
 
-  void _calculateMetrics() {
-    final totalExercises = widget.workout.exercises.length;
-    final totalSets = widget.workout.totalSets;
-    final totalWeightLifted = widget.workout.totalWeightLifted;
-    final totalDuration = widget.workout.exercises.fold<int>(
-      0,
-      (sum, exercise) => sum + (exercise.sets.length * 60), // Assuming 1 min per set
-    );
-
-    // Calculate muscle group distribution efficiently
-    final muscleGroupCounts = widget.workout.exercises.fold<Map<String, int>>(
-      {},
-      (counts, exercise) {
-        counts[exercise.muscleGroup] = (counts[exercise.muscleGroup] ?? 0) + 1;
-        return counts;
-      },
-    );
-
-    final primaryMuscleGroup = muscleGroupCounts.isEmpty
-        ? 'N/A'
-        : muscleGroupCounts.entries
-            .reduce((a, b) => a.value > b.value ? a : b)
-            .key;
-
-    _metrics = {
-      'totalExercises': totalExercises,
-      'totalSets': totalSets,
-      'totalWeightLifted': totalWeightLifted,
-      'totalDuration': totalDuration,
-      'primaryMuscleGroup': primaryMuscleGroup,
-    };
-  }
+  // _calculateMetrics might be replaced by directly accessing provider data
+  // void _calculateMetrics() { ... }
 
   Widget _buildProgressIndicator({
     required double value,
@@ -115,8 +89,17 @@ class _WorkoutSummaryCardState extends State<WorkoutSummaryCard> {
 
   @override
   Widget build(BuildContext context) {
-    final settingsProvider = Provider.of<SettingsProvider>(context);
-    final dateFormat = DateFormat('MMM dd, yyyy');
+    // final settingsProvider = Provider.of<SettingsProvider>(context); // Keep if needed
+    // final dateFormat = DateFormat('MMM dd, yyyy'); // Keep if needed
+    final dashboardProvider = Provider.of<DashboardProvider>(context);
+    final activityData = dashboardProvider.getActivityRingData(DateTime.now());
+
+    final moveCurrent = activityData['moveCurrent'] ?? 0.0;
+    final moveGoal = activityData['moveGoal'] ?? 1.0;
+    final exerciseCurrent = activityData['exerciseCurrent'] ?? 0.0;
+    final exerciseGoal = activityData['exerciseGoal'] ?? 1.0;
+    final standCurrent = activityData['standCurrent'] ?? 0.0;
+    final standGoal = activityData['standGoal'] ?? 1.0;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
@@ -140,28 +123,28 @@ class _WorkoutSummaryCardState extends State<WorkoutSummaryCard> {
             ),
             const SizedBox(height: 20),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceAround, // Changed for better spacing
               children: [
                 _buildProgressIndicator(
-                  value: _metrics['totalSets'] / 80, // Max sets per workout
-                  color: Colors.green,
-                  icon: Icons.directions_walk,
-                  label: '${_metrics['totalSets']}/80',
-                  sublabel: 'Sets',
+                  value: moveGoal == 0 ? 0 : moveCurrent / moveGoal,
+                  color: const Color(0xFFE53935), // Red for Move
+                  icon: Icons.local_fire_department, // Example icon for Move
+                  label: '${moveCurrent.toInt()}/${moveGoal.toInt()}',
+                  sublabel: 'Move',
                 ),
                 _buildProgressIndicator(
-                  value: _metrics['totalWeightLifted'] / 500, // Max weight target
-                  color: Colors.orange,
-                  icon: Icons.local_fire_department,
-                  label: '${_metrics['totalWeightLifted'].toInt()}/500',
-                  sublabel: 'kg',
+                  value: exerciseGoal == 0 ? 0 : exerciseCurrent / exerciseGoal,
+                  color: const Color(0xFF7CB342), // Green for Exercise
+                  icon: Icons.fitness_center, // Example icon for Exercise
+                  label: '${exerciseCurrent.toInt()}/${exerciseGoal.toInt()}',
+                  sublabel: 'Exercise',
                 ),
                 _buildProgressIndicator(
-                  value: _metrics['totalDuration'] / (30 * 60), // 30 min target
-                  color: Colors.blue,
-                  icon: Icons.timer,
-                  label: '${(_metrics['totalDuration'] ~/ 60)}/30',
-                  sublabel: 'min',
+                  value: standGoal == 0 ? 0 : standCurrent / standGoal,
+                  color: const Color(0xFF03A9F4), // Blue for Stand
+                  icon: Icons.accessibility_new, // Example icon for Stand
+                  label: '${standCurrent.toInt()}/${standGoal.toInt()}',
+                  sublabel: 'Stand',
                 ),
               ],
             ),

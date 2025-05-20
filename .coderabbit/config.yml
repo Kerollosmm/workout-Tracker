@@ -2,4 +2,4 @@ enablePRComments: true
 enableCommitComments: true
 enablePRDescriptions: true
 enableAutoReview: true
-model: gpt-4-turbo-preview
+model: claude-3.7-sonnet

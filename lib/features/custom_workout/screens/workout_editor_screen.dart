@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:uuid/uuid.dart'; // Add UUID import
+import 'package:uuid/uuid.dart';
 import '../../../core/models/workout.dart';
 import '../../../core/models/workout_set.dart';
 import '../../../core/providers/workout_provider.dart';
@@ -19,7 +19,8 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
   late Workout _workout;
   final _formKey = GlobalKey<FormState>();
   final _notesController = TextEditingController();
-  final _uuid = Uuid(); // Add UUID instance
+  final _workoutNameController = TextEditingController(); // Added for workout name
+  final _uuid = Uuid();
   bool _isEditing = false;
 
   @override
@@ -34,22 +35,27 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
         exercises: List.from(widget.workout!.exercises),
         duration: widget.workout!.duration,
         notes: widget.workout!.notes,
+        workoutName: widget.workout!.workoutName, // Added workoutName
       );
       _notesController.text = _workout.notes ?? '';
+      _workoutNameController.text = _workout.workoutName;
     } else {
       _workout = Workout(
-        id: UniqueKey().toString(),
+        id: _uuid.v4(), // Use UUID instead of UniqueKey
         date: DateTime.now(),
         exercises: [],
         duration: 0,
         notes: '',
+        workoutName: 'New Workout', // Default workoutName
       );
+      _workoutNameController.text = 'New Workout';
     }
   }
 
   @override
   void dispose() {
     _notesController.dispose();
+    _workoutNameController.dispose();
     super.dispose();
   }
 
@@ -224,7 +230,14 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
 
   Future<void> _saveWorkout() async {
     if (_formKey.currentState!.validate()) {
-      _workout.notes = _notesController.text;
+      // Create a new workout with updated values instead of modifying the final properties
+      final updatedWorkout = _workout.copyWith(
+        notes: _notesController.text,
+        workoutName: _workoutNameController.text,
+      );
+      
+      // Update the _workout reference to the new instance
+      _workout = updatedWorkout;
 
       final workoutProvider = Provider.of<WorkoutProvider>(context, listen: false);
 
@@ -235,14 +248,20 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
           await workoutProvider.addWorkout(_workout);
         }
 
-        if (mounted) {
+        // Store the mounted state in a local variable before the async gap
+        final isStillMounted = mounted;
+        
+        if (isStillMounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Workout saved successfully')),
           );
           Navigator.of(context).pop(true); // Return true to indicate successful save
         }
       } catch (e) {
-        if (mounted) {
+        // Store the mounted state in a local variable before the async gap
+        final isStillMounted = mounted;
+        
+        if (isStillMounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error saving workout: $e')),
           );
@@ -268,7 +287,11 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
             onPressed: () async {
               final workoutProvider = Provider.of<WorkoutProvider>(context, listen: false);
               await workoutProvider.deleteWorkout(_workout.id);
-              if (mounted) {
+              
+              // Store the mounted state in a local variable before the async gap
+              final isStillMounted = mounted;
+              
+              if (isStillMounted) {
                 Navigator.of(context).pop(); // Close dialog
                 Navigator.of(context).pop(); // Return to previous screen
               }
@@ -305,6 +328,24 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
         key: _formKey,
         child: Column(
           children: [
+            // Add workout name field
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: TextFormField(
+                controller: _workoutNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Workout Name',
+                  hintText: 'Enter a name for this workout',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a workout name';
+                  }
+                  return null;
+                },
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: TextFormField(

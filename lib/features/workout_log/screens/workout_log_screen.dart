@@ -97,6 +97,7 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
         date: workoutDate,
         exercises: List.from(selectedExercises), // Create a copy
         notes: notes,
+        workoutName: 'Workout ${DateFormat('MMM d').format(workoutDate)}', // Added required parameter
       );
 
       final workoutProvider = Provider.of<WorkoutProvider>(
@@ -585,6 +586,7 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
           child: const Icon(Icons.add, color: Colors.white),
           onPressed: () => _addExercise(context),
           tooltip: 'Add Exercise',
+          heroTag: 'workoutLogFAB', // Unique heroTag
         ),
       ),
     );

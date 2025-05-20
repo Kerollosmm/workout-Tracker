@@ -1,218 +1,211 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+// import 'package:provider/provider.dart'; // Not strictly needed for the new design with placeholders
 import '../../../core/models/workout.dart';
-import '../../../core/providers/workout_provider.dart';
+// import '../../../core/providers/workout_provider.dart'; // Not strictly needed for the new design with placeholders
 
 class WorkoutSummaryCard extends StatefulWidget {
-  final Workout workout;
+  final Workout
+  workout; // Kept for potential future use, but not directly used for new UI elements
   final VoidCallback? onTap;
 
-  const WorkoutSummaryCard({
-    Key? key,
-    required this.workout,
-    this.onTap,
-  }) : super(key: key);
+  const WorkoutSummaryCard({Key? key, required this.workout, this.onTap})
+    : super(key: key);
 
   @override
   State<WorkoutSummaryCard> createState() => _WorkoutSummaryCardState();
 }
 
 class _WorkoutSummaryCardState extends State<WorkoutSummaryCard> {
-  late Map<String, dynamic> _metrics;
-  late Map<String, dynamic> _monthBest;
+  // Removed _metrics, _monthBest, and their calculation methods as they don't fit the new design
 
-  @override
-  void initState() {
-    super.initState();
-    _calculateMetrics();
-  }
-
-  @override
-  void didUpdateWidget(WorkoutSummaryCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.workout != widget.workout) {
-      setState(() {
-        _calculateMetrics();
-      });
-    }
-  }
-
-  void _calculateMetrics() {
-    final totalExercises = widget.workout.exercises.length;
-    final totalSets = widget.workout.totalSets;
-    final totalWeightLifted = widget.workout.totalWeightLifted;
-    final totalDuration = widget.workout.exercises.fold<int>(
-      0,
-      (sum, exercise) => sum + (exercise.sets.length * 60), // Assuming 1 min per set
-    );
-
-    _metrics = {
-      'totalExercises': totalExercises,
-      'totalSets': totalSets,
-      'totalWeightLifted': totalWeightLifted,
-      'totalDuration': totalDuration,
-    };
-  }
-
-  Map<String, dynamic> _calculateMonthBest(WorkoutProvider provider) {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final endOfMonth = DateTime(now.year, now.month + 1, 0);
-    
-    var bestSets = 0;
-    var bestWeight = 0.0;
-    var bestDuration = 0;
-
-    for (final workout in provider.workouts) {
-      if (workout.date.isAfter(startOfMonth) && workout.date.isBefore(endOfMonth.add(const Duration(days: 1)))) {
-        // Update best sets
-        if (workout.totalSets > bestSets) {
-          bestSets = workout.totalSets;
-        }
-        // Update best weight
-        if (workout.totalWeightLifted > bestWeight) {
-          bestWeight = workout.totalWeightLifted;
-        }
-        // Update best duration
-        final duration = workout.exercises.fold<int>(
-          0,
-          (sum, exercise) => sum + (exercise.sets.length * 60),
-        );
-        if (duration > bestDuration) {
-          bestDuration = duration;
-        }
-      }
-    }
-
-    return {
-      'bestSets': bestSets,
-      'bestWeight': bestWeight,
-      'bestDuration': bestDuration,
-    };
-  }
-
-  Widget _buildProgressIndicator({
-    required double value,
-    required Color color,
-    required IconData icon,
+  Widget _buildActivityStat({
     required String label,
-    required String sublabel,
+    required String value,
+    required String unit,
+    required Color color,
   }) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            SizedBox(
-              width: 60,
-              height: 60,
-              child: CircularProgressIndicator(
-                value: value.clamp(0.0, 1.0),
-                strokeWidth: 8,
-                backgroundColor: color.withOpacity(0.2),
-                valueColor: AlwaysStoppedAnimation<Color>(color),
-              ),
-            ),
-            Icon(icon, color: color, size: 24),
-          ],
-        ),
-        const SizedBox(height: 8),
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.white.withOpacity(0.9),
+            fontWeight: FontWeight.w500,
           ),
         ),
-        Text(
-          sublabel,
-          style: TextStyle(
-            color: Colors.grey[400],
-            fontSize: 12,
-          ),
+        SizedBox(height: 2),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+            SizedBox(width: 4),
+            Padding(
+              padding: const EdgeInsets.only(top: 2.0), // Align baseline better
+              child: Text(
+                unit,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildIndicators(WorkoutProvider provider) {
-    final monthBest = _calculateMonthBest(provider);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        _buildProgressIndicator(
-          value: monthBest['bestSets'] > 0
-            ? _metrics['totalSets'] / monthBest['bestSets']
-            : 0,
-          color: Colors.green,
-          icon: Icons.directions_walk,
-          label: '${_metrics['totalSets']}/${monthBest['bestSets']}',
-          sublabel: 'Sets',
-        ),
-        _buildProgressIndicator(
-          value: monthBest['bestWeight'] > 0
-            ? _metrics['totalWeightLifted'] / monthBest['bestWeight']
-            : 0,
-          color: Colors.orange,
-          icon: Icons.local_fire_department,
-          label: '${_metrics['totalWeightLifted'].toInt()}/${monthBest['bestWeight'].toInt()}',
-          sublabel: 'kg',
-        ),
-        _buildProgressIndicator(
-          value: monthBest['bestDuration'] > 0
-            ? _metrics['totalDuration'] / monthBest['bestDuration']
-            : 0,
-          color: Colors.blue,
-          icon: Icons.timer,
-          label: '${(_metrics['totalDuration'] ~/ 60)}/${(monthBest['bestDuration'] ~/ 60)}',
-          sublabel: 'min',
-        ),
-      ],
+  Widget _buildSingleRing({
+    required double progress,
+    required Color color,
+    required double diameter,
+    required double thickness,
+  }) {
+    return SizedBox(
+      width: diameter,
+      height: diameter,
+      child: CircularProgressIndicator(
+        value: progress.clamp(0.0, 1.0),
+        strokeWidth: thickness,
+        backgroundColor: color.withOpacity(0.25),
+        valueColor: AlwaysStoppedAnimation<Color>(color),
+        strokeCap: StrokeCap.round, // Makes the ends of the progress line round
+      ),
+    );
+  }
+
+  Widget _buildFitnessRings() {
+    // Placeholder values - ideally, these would come from a provider or the workout model
+    final double moveProgress =
+        0.85; // Example: 605/600 CAL (capped at 1.0 for display)
+    final double exerciseProgress =
+        1.0; // Example: 42/30 MIN (capped at 1.0 for display)
+    final double standProgress =
+        0.7; // Example: 10/6 HRS (capped at 1.0 for display)
+
+    final Color moveColor = Colors.red.shade400; // Standard Apple Fitness Red
+    final Color exerciseColor =
+        Colors.green.shade400; // Standard Apple Fitness Green
+    final Color standColor =
+        Colors.cyan.shade400; // Standard Apple Fitness Blue/Cyan
+
+    final double ringThickness = 10.0;
+    final double baseRingDiameter = 90.0;
+
+    return SizedBox(
+      width:
+          baseRingDiameter +
+          ringThickness, // Adjusted for strokeCap: StrokeCap.round
+      height: baseRingDiameter + ringThickness,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          _buildSingleRing(
+            progress: moveProgress,
+            color: moveColor,
+            diameter: baseRingDiameter,
+            thickness: ringThickness,
+          ),
+          _buildSingleRing(
+            progress: exerciseProgress,
+            color: exerciseColor,
+            diameter: baseRingDiameter - (ringThickness * 2.2),
+            thickness: ringThickness,
+          ),
+          _buildSingleRing(
+            progress: standProgress,
+            color: standColor,
+            diameter: baseRingDiameter - (ringThickness * 4.4),
+            thickness: ringThickness,
+          ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    // Placeholder data for stats, matching Figma's visual
+    const String moveValue = "605/600";
+    const String exerciseValue = "42/30";
+    const String standValue = "10/6";
+
+    final Color moveColor = Colors.red.shade400;
+    final Color exerciseColor = Colors.green.shade400;
+    final Color standColor = Colors.cyan.shade400;
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-      color: const Color(0xFF1C1C1E),
+      color: const Color(0xFF1C1C1E), // Matches Figma's dark card background
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12), // Figma uses 12px
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(
+          16,
+        ), // Figma seems to use ~16-20px padding
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Activity',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'vs Monthly Best',
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 14,
-                  ),
-                ),
-              ],
+            const Text(
+              'Activity',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22, // Figma: 20pt, SF Pro Bold
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            const SizedBox(height: 20),
-            Consumer<WorkoutProvider>(
-              builder: (context, provider, _) => _buildIndicators(provider),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildActivityStat(
+                        label: "Move",
+                        value: moveValue,
+                        unit: "CAL",
+                        color: moveColor,
+                      ),
+                      const SizedBox(height: 10), // Figma: ~12-16px spacing
+                      _buildActivityStat(
+                        label: "Exercise",
+                        value: exerciseValue,
+                        unit: "MIN",
+                        color: exerciseColor,
+                      ),
+                      const SizedBox(height: 10),
+                      _buildActivityStat(
+                        label: "Stand",
+                        value: standValue,
+                        unit: "HRS",
+                        color: standColor,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                _buildFitnessRings(),
+              ],
             ),
           ],
         ),
       ),
     );
   }
-} 
+}

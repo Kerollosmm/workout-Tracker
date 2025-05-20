@@ -3,7 +3,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'package:collection/collection.dart';
 import '../models/workout.dart';
 import 'workout_provider.dart';
 
@@ -31,7 +30,7 @@ class AnalyticsProvider with ChangeNotifier {
   void _initializeDefaultState() {
     // Set default date range (last 30 days)
     _endDate = DateTime.now();
-    _startDate = _endDate!.subtract(Duration(days: 30));
+    _startDate = _endDate!.subtract(const Duration(days: 30));
     _smartClearCache();
   }
 
@@ -49,6 +48,9 @@ class AnalyticsProvider with ChangeNotifier {
 
   /// Clears cache selectively. If [exerciseId] is null, clears all caches.
   bool _smartClearCache([String? exerciseId]) {
+    _exerciseDataCache ??= {};
+    _exerciseCountCache ??= {};
+
     if (exerciseId == null) {
       final hadCache = (_exerciseDataCache?.isNotEmpty ?? false)
         || (_exerciseCountCache?.isNotEmpty ?? false);
@@ -56,8 +58,8 @@ class AnalyticsProvider with ChangeNotifier {
       _exerciseCountCache = {};
       _lastCacheUpdate = null;
       return hadCache;
-      
     }
+    
     final removedData = _exerciseDataCache?.remove(exerciseId) != null;
     final removedCount = _exerciseCountCache?.remove(exerciseId) != null;
     if (removedData || removedCount) {
@@ -83,10 +85,10 @@ class AnalyticsProvider with ChangeNotifier {
     
     switch (filter) {
       case 'Weekly':
-        _startDate = _endDate!.subtract(Duration(days: 7));
+        _startDate = _endDate!.subtract(const Duration(days: 7));
         break;
       case 'Monthly':
-        _startDate = _endDate!.subtract(Duration(days: 30));
+        _startDate = _endDate!.subtract(const Duration(days: 30));
         break;
       case 'All Time':
         _startDate = null; // No start date limit
@@ -244,7 +246,7 @@ class AnalyticsProvider with ChangeNotifier {
   }
 
   Map<String, dynamic> _findMostTrainedFromCache() {
-    if (_exerciseCountCache!.isEmpty) {
+    if (_exerciseCountCache == null || _exerciseCountCache!.isEmpty) {
       return {
         'name': 'No exercises yet',
         'muscleGroup': '',

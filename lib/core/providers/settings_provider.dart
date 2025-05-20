@@ -14,7 +14,7 @@ class SettingsProvider with ChangeNotifier {
   final ExerciseProvider _exerciseProvider;
   final AnalyticsProvider _analyticsProvider;
   final DashboardProvider _dashboardProvider;
-  
+
   SettingsProvider(
     this._exerciseProvider,
     this._analyticsProvider,
@@ -22,56 +22,113 @@ class SettingsProvider with ChangeNotifier {
   ) {
     _init();
   }
-  
+
   Future<void> _init() async {
-    _settingsBox = Hive.box<UserSettings>('settings');
-    
-    if (_settingsBox!.isEmpty) {
-      // Create default settings
-      _settings = UserSettings(
-        language: 'en',
-        weightUnit: 'kg',
-        isDarkMode: false,
-        notificationDays: [],
-        notificationTime: '08:00',
-      );
-      await _settingsBox!.add(_settings!);
-    } else {
-      _settings = _settingsBox!.getAt(0);
+    try {
+      _settingsBox = Hive.box<UserSettings>('settings');
+
+      if (_settingsBox != null && _settingsBox!.isEmpty) {
+        // Create default settings
+        _settings = UserSettings(
+          language: 'en',
+          weightUnit: 'kg',
+          isDarkMode: false,
+          notificationDays: [],
+          notificationTime: '08:00',
+        );
+        await _settingsBox!.add(_settings!);
+      } else if (_settingsBox != null) {
+        _settings = _settingsBox!.getAt(0);
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error initializing SettingsProvider: $e');
+      // Will try again later when needed
     }
-    
-    notifyListeners();
   }
-  
+
+  // Get box safely with error handling
+  Future<Box<UserSettings>?> _getBox() async {
+    if (_settingsBox == null) {
+      try {
+        _settingsBox = Hive.box<UserSettings>('settings');
+        if (_settingsBox != null && _settingsBox!.isEmpty) {
+          // Create default settings
+          _settings = UserSettings(
+            language: 'en',
+            weightUnit: 'kg',
+            isDarkMode: false,
+            notificationDays: [],
+            notificationTime: '08:00',
+          );
+          await _settingsBox!.add(_settings!);
+        } else if (_settingsBox != null) {
+          _settings = _settingsBox!.getAt(0);
+        }
+      } catch (e) {
+        debugPrint('Could not get settings box: $e');
+        return null;
+      }
+    }
+    return _settingsBox;
+  }
+
   // Getters with null safety
   String get language => _settings?.language ?? 'en';
   String get weightUnit => _settings?.weightUnit ?? 'kg';
   bool get isDarkMode => _settings?.isDarkMode ?? false;
   List<String> get notificationDays => _settings?.notificationDays ?? [];
   String? get notificationTime => _settings?.notificationTime;
-  
+
   // Setters
+  Future<void> updateSettings({
+    String? language,
+    String? weightUnit,
+    bool? isDarkMode,
+    List<String>? notificationDays,
+    String? notificationTime,
+  }) async {
+    if (_settings == null) return;
+
+    // Update local settings
+    if (language != null) _settings!.language = language;
+    if (weightUnit != null) _settings!.weightUnit = weightUnit;
+    if (isDarkMode != null) _settings!.isDarkMode = isDarkMode;
+    if (notificationDays != null)
+      _settings!.notificationDays = notificationDays;
+    if (notificationTime != null)
+      _settings!.notificationTime = notificationTime;
+
+    // Save to Hive
+    final box = await _getBox();
+    if (box != null) {
+      await box.putAt(0, _settings!);
+    }
+
+    // Update notifications if needed
+    if (notificationDays != null || notificationTime != null) {
+      _updateNotifications();
+    }
+
+    notifyListeners();
+  }
+
   Future<void> setLanguage(String language) async {
-    if (_settings != null) {
-      _settings!.language = language;
-      await _updateSettings();
-    }
+    await updateSettings(language: language);
   }
-  
+
   Future<void> setWeightUnit(String unit) async {
-    if (_settings != null) {
-      _settings!.weightUnit = unit;
-      await _updateSettings();
-    }
+    await updateSettings(weightUnit: unit);
   }
-  
+
   Future<void> setDarkMode(bool isDarkMode) async {
     if (_settings != null) {
       _settings!.isDarkMode = isDarkMode;
       await _updateSettings();
     }
   }
-  
+
   Future<void> setNotificationDays(List<String> days) async {
     if (_settings != null) {
       _settings!.notificationDays = days;
@@ -79,7 +136,7 @@ class SettingsProvider with ChangeNotifier {
       _updateNotifications();
     }
   }
-  
+
   Future<void> setNotificationTime(String time) async {
     if (_settings != null) {
       _settings!.notificationTime = time;
@@ -87,17 +144,18 @@ class SettingsProvider with ChangeNotifier {
       _updateNotifications();
     }
   }
-  
+
   Future<void> _updateSettings() async {
     if (_settingsBox != null && _settings != null) {
       await _settingsBox!.putAt(0, _settings!);
       notifyListeners();
     }
   }
-  
+
   void _updateNotifications() {
     if (_settings != null) {
-      if (_settings!.notificationDays.isEmpty || _settings!.notificationTime == null) {
+      if (_settings!.notificationDays.isEmpty ||
+          _settings!.notificationTime == null) {
         // Cancel all notifications if disabled
         _notificationService.cancelAll();
       } else {
@@ -114,19 +172,30 @@ class SettingsProvider with ChangeNotifier {
 
   Future<void> resetAllData() async {
     try {
-      // Clear all Hive boxes
-      final workoutsBox = Hive.box<Workout>('workouts');
-      await workoutsBox.clear();
-      
+      // Try to get boxes safely
+      final settingsBox = await _getBox();
+      Box<Workout>? workoutsBox;
+
+      try {
+        workoutsBox = Hive.box<Workout>('workouts');
+      } catch (e) {
+        debugPrint('Could not access workouts box for reset: $e');
+      }
+
+      // Clear workouts if box is available
+      if (workoutsBox != null) {
+        await workoutsBox.clear();
+      }
+
       // Reset exercises (this will clear and reinstall defaults)
       await _exerciseProvider.resetExercises();
-      
+
       // Reset analytics state
       _analyticsProvider.resetState();
-      
+
       // Reset dashboard state
       _dashboardProvider.resetState();
-      
+
       // Reset settings to default
       _settings = UserSettings(
         language: 'en',
@@ -135,13 +204,16 @@ class SettingsProvider with ChangeNotifier {
         notificationDays: [],
         notificationTime: '08:00',
       );
-      
-      await _settingsBox?.clear();
-      await _settingsBox?.add(_settings!);
-      
+
+      // Update settings box if available
+      if (settingsBox != null) {
+        await settingsBox.clear();
+        await settingsBox.add(_settings!);
+      }
+
       // Cancel all notifications
       await _notificationService.cancelAll();
-      
+
       notifyListeners();
     } catch (e) {
       debugPrint('Error resetting data: $e');

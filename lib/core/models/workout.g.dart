@@ -17,18 +17,19 @@ class WorkoutAdapter extends TypeAdapter<Workout> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return Workout(
-      id: fields[0] as String,
+      id: fields[0]?.toString() ?? '', // معالجة القيم الفارغة
       date: fields[1] as DateTime,
       exercises: (fields[2] as List).cast<WorkoutExercise>(),
       duration: fields[3] as int,
       notes: fields[4] as String?,
+      workoutName: fields[5]?.toString() ?? '', // معالجة القيم الفارغة
     );
   }
 
   @override
   void write(BinaryWriter writer, Workout obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -38,7 +39,9 @@ class WorkoutAdapter extends TypeAdapter<Workout> {
       ..writeByte(3)
       ..write(obj.duration)
       ..writeByte(4)
-      ..write(obj.notes);
+      ..write(obj.notes)
+      ..writeByte(5)
+      ..write(obj.workoutName);
   }
 
   @override
@@ -63,9 +66,9 @@ class WorkoutExerciseAdapter extends TypeAdapter<WorkoutExercise> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return WorkoutExercise(
-      exerciseId: fields[0] as String,
-      exerciseName: fields[1] as String,
-      muscleGroup: fields[2] as String,
+      exerciseId: fields[0]?.toString() ?? '',
+      exerciseName: fields[1]?.toString() ?? '',
+      muscleGroup: fields[2]?.toString() ?? '',
       sets: (fields[3] as List).cast<WorkoutSet>(),
     );
   }
