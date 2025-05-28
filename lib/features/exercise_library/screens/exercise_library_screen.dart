@@ -24,7 +24,6 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
       (e['name'] as String).toLowerCase().contains(_search.toLowerCase())
     ).toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('Exercise Library')),
       body: Column(
         children: [
           Padding(

@@ -1,7 +1,8 @@
-import 'dart:ui';
-
-import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../core/providers/user_provider.dart';
+import '../../../config/themes/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -10,207 +11,132 @@ class SplashScreen extends StatefulWidget {
   _SplashScreenState createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
-  double _opacity = 0.0;
-  double _textOpacity = 0.0;
-  double _progressValue = 0.0;
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  bool _animationCompleted = false;
 
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 1500),
+      )
+      ..forward().then((_) {
+        if (mounted) {
+          setState(() {
+            _animationCompleted = true;
+          });
+        }
+      });
+
     _initializeApp();
   }
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   Future<void> _initializeApp() async {
-    // Start progress animation
-    Timer.periodic(Duration(milliseconds: 50), (timer) {
-      if (_progressValue < 1.0 && mounted) {
-        setState(() {
-          _progressValue += 0.05;
-        });
-      } else {
-        timer.cancel();
-      }
-    });
-
-    // Fade-in animations
-    Timer(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        setState(() {
-          _opacity = 1.0;
-        });
-      }
-    });
-
-    // Text appearance delay
-    Timer(const Duration(milliseconds: 1500), () {
-      if (mounted) {
-        setState(() {
-          _textOpacity = 1.0;
-        });
-      }
-    });
-
-    // Navigate after 3 seconds
+    // Wait for the animation to complete (2 seconds) + 1 second buffer
     await Future.delayed(const Duration(seconds: 3));
-    
-    if (mounted) {
+
+    if (!mounted) return;
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final isSignedIn = await userProvider.isUserSignedIn();
+
+    if (!mounted) return;
+
+    if (isSignedIn) {
       Navigator.of(context).pushReplacementNamed('/dashboard');
+    } else {
+      Navigator.of(context).pushReplacementNamed('/signin');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
     return Scaffold(
       backgroundColor: Colors.black,
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              const Color(0xFF1A1A2E),
-              const Color(0xFF16213E),
-              const Color(0xFF0F3460),
-            ],
+            colors: [Color(0xFF121212), Color(0xFF1E1E1E)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            stops: const [0.0, 0.5, 1.0],
           ),
         ),
-        child: SafeArea(
-          child: Stack(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Align(
-                alignment: Alignment.center,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Logo Container with Glassmorphism
-                      AnimatedOpacity(
-                        opacity: _opacity,
-                        duration: const Duration(milliseconds: 800),
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0, 0.1),
-                            end: Offset.zero,
-                          ).animate(CurvedAnimation(
-                            parent: ModalRoute.of(context)!.animation!,
-                            curve: Curves.easeOutBack,
-                          )),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 40),
-                              padding: const EdgeInsets.all(25),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.05),
-                                borderRadius: BorderRadius.circular(30),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.15),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
-                                    blurRadius: 20,
-                                    spreadRadius: 2,
-                                  ),
-                                ],
+              // App Logo with Scale Animation
+              AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale:
+                        Tween<double>(begin: 0.5, end: 1.0)
+                            .animate(
+                              CurvedAnimation(
+                                parent: _controller,
+                                curve: Curves.elasticOut,
                               ),
-                              child: Image.asset(
-                                'assets/app_logo.png',
-                                width: 130,
-                                height: 130,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Icon(
-                                    Icons.fitness_center_rounded,
-                                    color: theme.primaryColorLight,
-                                    size: 130,
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // Progress Bar
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 40),
-                        child: LinearProgressIndicator(
-                          value: _progressValue,
-                          color: theme.primaryColorLight.withOpacity(0.9),
-                          backgroundColor: Colors.white.withOpacity(0.1),
-                          minHeight: 3,
-                        ),
-                      ),
-
-                      // Text Content
-                      AnimatedOpacity(
-                        opacity: _textOpacity,
-                        duration: const Duration(milliseconds: 800),
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 60),
-                          child: Column(
-                            children: [
-                              Text(
-                                'Workout Tracker Pro',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.2,
-                                  fontFamily: 'Poppins',
-                                  shadows: [
-                                    Shadow(
-                                      blurRadius: 10.0,
-                                      color: Colors.black.withOpacity(0.3),
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'Transform Your Fitness Journey',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.85),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w400,
-                                  letterSpacing: 0.6,
-                                  fontFamily: 'Poppins',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                            )
+                            .value,
+                    child: child,
+                  );
+                },
+                child: Container(
+                  width: 150,
+                  height: 150,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 20,
+                        spreadRadius: 2,
                       ),
                     ],
                   ),
-                ),
-              ),
-              
-              // Bottom Glow Effect
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 100,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        Colors.white.withOpacity(0.1),
-                        Colors.transparent,
-                      ],
-                    ),
+                  child: Icon(
+                    Icons.fitness_center_outlined,
+                    color: AppTheme.exerciseRingColor,
+                    size: 64,
                   ),
                 ),
-              )
+              ),
+
+              // App Name with Fade In Animation
+              AnimatedOpacity(
+                opacity: _animationCompleted ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 500),
+                child: const Text(
+                  'Workout Tracker Pro',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              AnimatedOpacity(
+                opacity: _animationCompleted ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 500),
+                child: const Text(
+                  'Transform Your Fitness Journey',
+                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                ),
+              ),
             ],
           ),
         ),

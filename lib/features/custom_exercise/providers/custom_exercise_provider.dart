@@ -54,9 +54,10 @@ class CustomExerciseProvider with ChangeNotifier {
   }
 
   // Save custom exercise
-  Future<String?> saveExercise() async {
+  Future<void> saveExercise() async {
     if (_exerciseName.trim().isEmpty) {
-      return 'Exercise name cannot be empty';
+      debugPrint('CustomExerciseProvider: Exercise name cannot be empty');
+      throw Exception('Exercise name cannot be empty');
     }
 
     try {
@@ -71,10 +72,11 @@ class CustomExerciseProvider with ChangeNotifier {
       );
 
       await _exerciseProvider.addExercise(newExercise);
+      debugPrint('CustomExerciseProvider: Exercise saved successfully: ${_exerciseName.trim()}');
       resetForm();
-      return null;
     } catch (e) {
-      return 'Failed to save exercise: ${e.toString()}';
+      debugPrint('CustomExerciseProvider: Failed to save exercise: ${e.toString()}');
+      rethrow;
     }
   }
 
@@ -88,32 +90,46 @@ class CustomExerciseProvider with ChangeNotifier {
   }
 
   // Update existing exercise
-  Future<String?> updateExercise(String exerciseId) async {
+  Future<void> updateExercise(String exerciseId) async {
     if (_exerciseName.trim().isEmpty) {
-      return 'Exercise name cannot be empty';
+      debugPrint('CustomExerciseProvider: Exercise name cannot be empty for update');
+      throw Exception('Exercise name cannot be empty');
     }
 
-    final exercise = _exerciseProvider.getExerciseById(exerciseId);
-    if (exercise == null) {
-      return 'Exercise not found';
+    final exerciseToUpdate = _exerciseProvider.getExerciseById(exerciseId);
+    if (exerciseToUpdate == null) {
+      debugPrint('CustomExerciseProvider: Exercise not found for update with id: $exerciseId');
+      throw Exception('Exercise not found');
     }
 
-    exercise.name = _exerciseName.trim();
-    exercise.muscleGroup = _selectedMuscleGroup;
-    exercise.isFavorite = _isFavorite;
-    exercise.notes = _notes;
+    final updatedExercise = exerciseToUpdate.copyWith(
+      name: _exerciseName.trim(),
+      muscleGroup: _selectedMuscleGroup,
+      isFavorite: _isFavorite,
+      notes: _notes,
+      isCustom: exerciseToUpdate.isCustom,
+      iconPath: exerciseToUpdate.iconPath,
+    );
 
-    await _exerciseProvider.updateExercise(exercise);
-    resetForm();
-    return "Updated Succefully";
+    try {
+      await _exerciseProvider.updateExercise(updatedExercise);
+      debugPrint('CustomExerciseProvider: Exercise updated successfully: ${_exerciseName.trim()}');
+      resetForm();
+    } catch (e) {
+      debugPrint('CustomExerciseProvider: Failed to update exercise: ${e.toString()}');
+      rethrow;
+    }
   }
 
-  Future<String?> deleteExercise(String exerciseId) async {
+  Future<void> deleteExercise(String exerciseId) async {
     try {
-      await _exerciseProvider.deleteCustomExercise(exerciseId);
-      return null;
+      // Updated 2024-07-26: Call the correct delete method in ExerciseProvider
+      await _exerciseProvider.deleteExercise(exerciseId);
+      debugPrint('CustomExerciseProvider: Exercise deleted successfully: $exerciseId');
+      // No return value needed
     } catch (e) {
-      return 'Failed to delete exercise: ${e.toString()}';
+      debugPrint('CustomExerciseProvider: Failed to delete exercise: ${e.toString()}');
+      rethrow;
     }
   }
 }

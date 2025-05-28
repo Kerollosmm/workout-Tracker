@@ -1,390 +1,350 @@
+import 'package:activity_ring/activity_ring.dart';
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../../../core/providers/settings_provider.dart';
-import '../../../core/providers/workout_provider.dart';
+import 'package:provider/provider.dart';
+
+import '../../../config/themes/app_theme.dart';
 import '../providers/dashboard_provider.dart';
 
 class ProgressChartWidget extends StatefulWidget {
-  const ProgressChartWidget({Key? key}) : super(key: key);
+  const ProgressChartWidget({super.key});
 
   @override
-  _ProgressChartWidgetState createState() => _ProgressChartWidgetState();
+  State<ProgressChartWidget> createState() => _ProgressChartWidgetState();
 }
 
 class _ProgressChartWidgetState extends State<ProgressChartWidget> {
-  String _selectedMetric = 'volume';
-
-  @override
-  Widget build(BuildContext context) {
-    final dashboardProvider = Provider.of<DashboardProvider>(context);
-    final settingsProvider = Provider.of<SettingsProvider>(context);
-    final workoutProvider = Provider.of<WorkoutProvider>(context);
-
-    final weekData = dashboardProvider.getWeeklyChartData() ?? [];
-
-    final spots = _getSpots(weekData, workoutProvider);
-    final spots2 = _getSecondarySpots(weekData, workoutProvider);
-
-    double maxY =
-        spots.isNotEmpty
-            ? spots.map((spot) => spot.y).reduce((a, b) => a > b ? a : b) * 1.2
-            : 10;
-
-    return SizedBox(
-      height: 300,
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildTopBar(BuildContext context, Color textColor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Summary',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+          Row(
             children: [
-              // Header with metric selector
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Performance Trend',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  DropdownButton<String>(
-                    value: _selectedMetric,
-                    underline: Container(),
-                    items: const [
-                      DropdownMenuItem(value: 'volume', child: Text('Volume')),
-                      DropdownMenuItem(
-                        value: 'tonnage',
-                        child: Text('Tonnage'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'intensity',
-                        child: Text('Intensity'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'density',
-                        child: Text('Density'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'calories',
-                        child: Text('Calories'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _selectedMetric = value);
-                      }
-                    },
-                  ),
-                ],
+              Text(
+                DateFormat('MMMM d').format(DateTime.now()),
+                style: TextStyle(fontSize: 16, color: textColor.withAlpha(180)),
               ),
-              const SizedBox(height: 20),
-
-              // Chart
-              Expanded(
-                child: LineChart(
-                  LineChartData(
-                    gridData: const FlGridData(show: true),
-                    titlesData: FlTitlesData(
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          getTitlesWidget: (value, meta) {
-                            final index = value.toInt();
-                            if (index >= 0 && index < weekData.length) {
-                              final date = weekData[index]['date'] as DateTime?;
-                              if (date != null) {
-                                return Text(
-                                  DateFormat('E').format(date),
-                                  style: const TextStyle(fontSize: 10),
-                                );
-                              }
-                            }
-                            return const Text('');
-                          },
-                        ),
-                      ),
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 40,
-                          getTitlesWidget: (value, meta) {
-                            return Text(
-                              _formatAxisLabel(value),
-                              style: const TextStyle(fontSize: 10),
-                            );
-                          },
-                        ),
-                      ),
-                      rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                    ),
-                    borderData: FlBorderData(show: false),
-                    lineBarsData: [
-                      // Primary metric
-                      LineChartBarData(
-                        spots: spots,
-                        isCurved: true,
-                        color: Theme.of(context).primaryColor,
-                        barWidth: 3,
-                        isStrokeCapRound: true,
-                        dotData: const FlDotData(show: true),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          color: Theme.of(
-                            context,
-                          ).primaryColor.withOpacity(0.2),
-                        ),
-                      ),
-                      // Secondary metric (trend line)
-                      if (_selectedMetric == 'volume' ||
-                          _selectedMetric == 'calories')
-                        LineChartBarData(
-                          spots: spots2,
-                          isCurved: true,
-                          color: Colors.red,
-                          barWidth: 2,
-                          isStrokeCapRound: true,
-                          dotData: const FlDotData(show: false),
-                          dashArray: const [5, 5],
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Legend
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildLegendItem(
-                    context,
-                    'Actual',
-                    Theme.of(context).primaryColor,
-                  ),
-                  if (_selectedMetric == 'volume' ||
-                      _selectedMetric == 'calories')
-                    _buildLegendItem(context, 'Trend', Colors.red),
-                ],
-              ),
+              const SizedBox(width: 8),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLegendItem(BuildContext context, String label, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        children: [
-          Container(width: 16, height: 3, color: color),
-          const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 12)),
         ],
       ),
     );
   }
 
-  List<FlSpot> _getSpots(
-    List<Map<String, dynamic>> weekData,
-    WorkoutProvider provider,
+  Widget _buildDailyRing(
+    BuildContext context,
+    String day,
+    double movePercent,
+    double exercisePercent,
+    double standPercent,
+    bool isToday,
   ) {
-    if (weekData.isEmpty) return [];
+    const ringRadius = 20.0;
+    const ringWidth = 4.0;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final dayTextColor =
+        isToday
+            ? AppTheme.primaryColor
+            : (isDarkMode ? Colors.white70 : Colors.black54);
 
-    try {
-      switch (_selectedMetric) {
-        case 'volume':
-          return weekData.asMap().entries.map((entry) {
-            final totalWeight = entry.value['totalWeight'] as double? ?? 0.0;
-            return FlSpot(entry.key.toDouble(), totalWeight);
-          }).toList();
-        case 'tonnage':
-          return _calculateTonnage(weekData, provider);
-        case 'intensity':
-          return _calculateIntensity(weekData, provider);
-        case 'density':
-          return _calculateDensity(weekData, provider);
-        case 'calories':
-          return _calculateCalories(weekData, provider);
-        default:
-          return [];
-      }
-    } catch (e) {
-      debugPrint('Error calculating chart data: $e');
-      return [];
-    }
+    final Color moveColorDaily = Colors.pinkAccent.shade100;
+    final Color exerciseColorDaily = Colors.lightGreenAccent.shade200;
+    final Color standColorDaily = Colors.lightBlueAccent.shade100;
+
+    final Color moveBgColorDaily = moveColorDaily.withAlpha(
+      (0.2 * 255).round(),
+    );
+    final Color exerciseBgColorDaily = exerciseColorDaily.withAlpha(
+      (0.2 * 255).round(),
+    );
+    final Color standBgColorDaily = standColorDaily.withAlpha(
+      (0.2 * 255).round(),
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          day,
+          style: TextStyle(
+            color: dayTextColor,
+            fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        const SizedBox(height: 4),
+        SizedBox(
+          width: ringRadius * 2,
+          height: ringRadius * 2,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Ring(
+                percent: 100,
+                color: RingColorScheme(
+                  ringColor: moveBgColorDaily,
+                  backgroundColor: Colors.transparent,
+                ),
+                radius: ringRadius,
+                width: ringWidth,
+              ),
+              Ring(
+                percent: 100,
+                color: RingColorScheme(
+                  ringColor: exerciseBgColorDaily,
+                  backgroundColor: Colors.transparent,
+                ),
+                radius: ringRadius - ringWidth - 1,
+                width: ringWidth,
+              ),
+              Ring(
+                percent: 100,
+                color: RingColorScheme(
+                  ringColor: standBgColorDaily,
+                  backgroundColor: Colors.transparent,
+                ),
+                radius: ringRadius - (ringWidth * 2) - 2,
+                width: ringWidth,
+              ),
+              if (movePercent > 0)
+                Ring(
+                  percent: movePercent * 100,
+                  color: RingColorScheme(
+                    ringColor: moveColorDaily,
+                    backgroundColor: Colors.transparent,
+                  ),
+                  radius: ringRadius,
+                  width: ringWidth,
+                ),
+              if (exercisePercent > 0)
+                Ring(
+                  percent: exercisePercent * 100,
+                  color: RingColorScheme(
+                    ringColor: exerciseColorDaily,
+                    backgroundColor: Colors.transparent,
+                  ),
+                  radius: ringRadius - ringWidth - 1,
+                  width: ringWidth,
+                ),
+              if (standPercent > 0)
+                Ring(
+                  percent: standPercent * 100,
+                  color: RingColorScheme(
+                    ringColor: standColorDaily,
+                    backgroundColor: Colors.transparent,
+                  ),
+                  radius: ringRadius - (ringWidth * 2) - 2,
+                  width: ringWidth,
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
-  List<FlSpot> _calculateCalories(
-    List<Map<String, dynamic>> weekData,
-    WorkoutProvider provider,
+  Widget _buildWeeklySummaryRings(
+    BuildContext context,
+    DashboardProvider dashboardProvider,
   ) {
-    return weekData.asMap().entries.map((entry) {
-      final calories = entry.value['calories'] as double? ?? 0.0;
-      return FlSpot(entry.key.toDouble(), calories);
-    }).toList();
+    final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    final today = DateTime.now();
+    final weekStart = today.subtract(Duration(days: today.weekday - 1));
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: List.generate(days.length, (index) {
+          final dayDate = weekStart.add(Duration(days: index));
+          final activityData = dashboardProvider.getActivityRingData(dayDate);
+
+          final movePercent =
+              (activityData['moveCurrent'] ?? 0.0) /
+              (activityData['moveGoal'] ?? 1.0);
+          final exercisePercent =
+              (activityData['exerciseCurrent'] ?? 0.0) /
+              (activityData['exerciseGoal'] ?? 1.0);
+          final standPercent =
+              (activityData['standCurrent'] ?? 0.0) /
+              (activityData['standGoal'] ?? 1.0);
+
+          bool isTodayDate =
+              dayDate.year == today.year &&
+              dayDate.month == today.month &&
+              dayDate.day == today.day;
+
+          return _buildDailyRing(
+            context,
+            days[index],
+            movePercent.clamp(0.0, 1.0),
+            exercisePercent.clamp(0.0, 1.0),
+            standPercent.clamp(0.0, 1.0),
+            isTodayDate,
+          );
+        }),
+      ),
+    );
   }
 
-  List<FlSpot> _getSecondarySpots(
-    List<Map<String, dynamic>> weekData,
-    WorkoutProvider provider,
+  Widget _buildMainProgressRings(
+    BuildContext context,
+    DashboardProvider dashboardProvider,
   ) {
-    if (_selectedMetric == 'volume' || _selectedMetric == 'calories') {
-      // Calculate trend line
-      final spots = _getSpots(weekData, provider);
-      if (spots.length < 2) return [];
+    final screenWidth = MediaQuery.of(context).size.width;
+    final ringRadius = screenWidth * 0.35;
+    final ringWidth = screenWidth * 0.08;
 
-      // Simple linear regression for trend line
-      double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-      for (var spot in spots) {
-        sumX += spot.x;
-        sumY += spot.y;
-        sumXY += spot.x * spot.y;
-        sumX2 += spot.x * spot.x;
-      }
+    final activityData = dashboardProvider.getActivityRingData(DateTime.now());
 
-      double n = spots.length.toDouble();
-      // Prevent division by zero
-      if ((n * sumX2 - sumX * sumX) == 0) return [];
+    final double movePercent =
+        (activityData['moveCurrent'] ?? 0.0) /
+        (activityData['moveGoal'] ?? 1.0);
+    final double exercisePercent =
+        (activityData['exerciseCurrent'] ?? 0.0) /
+        (activityData['exerciseGoal'] ?? 1.0);
+    final double standPercent =
+        (activityData['standCurrent'] ?? 0.0) /
+        (activityData['standGoal'] ?? 1.0);
 
-      double slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-      double intercept = (sumY - slope * sumX) / n;
+    final Color moveColor = Colors.pinkAccent.shade200;
+    final Color exerciseColor = Colors.lightGreenAccent.shade400;
+    final Color standColor = Colors.lightBlueAccent.shade200;
 
-      return spots.map((spot) {
-        return FlSpot(spot.x, slope * spot.x + intercept);
-      }).toList();
-    }
-    return [];
+    final Color moveBgColor = moveColor.withAlpha((0.2 * 255).round());
+    final Color exerciseBgColor = exerciseColor.withAlpha((0.2 * 255).round());
+    final Color standBgColor = standColor.withAlpha((0.2 * 255).round());
+
+    return SizedBox(
+      width: ringRadius * 2.2,
+      height: ringRadius * 2.2,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Ring(
+            percent: 100,
+            color: RingColorScheme(
+              ringColor: moveBgColor,
+              backgroundColor: Colors.transparent,
+            ),
+            radius: ringRadius,
+            width: ringWidth,
+          ),
+          Ring(
+            percent: 100,
+            color: RingColorScheme(
+              ringColor: exerciseBgColor,
+              backgroundColor: Colors.transparent,
+            ),
+            radius: ringRadius - ringWidth - (ringWidth * 0.1),
+            width: ringWidth,
+          ),
+          Ring(
+            percent: 100,
+            color: RingColorScheme(
+              ringColor: standBgColor,
+              backgroundColor: Colors.transparent,
+            ),
+            radius: ringRadius - (ringWidth * 2) - (ringWidth * 0.2),
+            width: ringWidth,
+          ),
+          Ring(
+            percent: movePercent * 100,
+            color: RingColorScheme(
+              ringColor: moveColor,
+              backgroundColor: Colors.transparent,
+            ),
+            radius: ringRadius,
+            width: ringWidth,
+            child: Center(
+              child: Text(
+                '${(activityData['moveCurrent'] ?? 0.0).toInt()}/${(activityData['moveGoal'] ?? 1.0).toInt()}\nMOVE',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: ringWidth * 0.3,
+                  color: moveColor.withAlpha(200),
+                ),
+              ),
+            ),
+          ),
+          Ring(
+            percent: exercisePercent * 100,
+            color: RingColorScheme(
+              ringColor: exerciseColor,
+              backgroundColor: Colors.transparent,
+            ),
+            radius: ringRadius - ringWidth - (ringWidth * 0.1),
+            width: ringWidth,
+            child: Center(
+              child: Text(
+                '${(activityData['exerciseCurrent'] ?? 0.0).toInt()}/${(activityData['exerciseGoal'] ?? 1.0).toInt()}\nEXERCISE',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: ringWidth * 0.3,
+                  color: exerciseColor.withAlpha(200),
+                ),
+              ),
+            ),
+          ),
+          Ring(
+            percent: standPercent * 100,
+            color: RingColorScheme(
+              ringColor: standColor,
+              backgroundColor: Colors.transparent,
+            ),
+            radius: ringRadius - (ringWidth * 2) - (ringWidth * 0.2),
+            width: ringWidth,
+            child: Center(
+              child: Text(
+                '${(activityData['standCurrent'] ?? 0.0).toInt()}/${(activityData['standGoal'] ?? 1.0).toInt()}\nSTAND',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: ringWidth * 0.3,
+                  color: standColor.withAlpha(200),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  List<FlSpot> _calculateTonnage(
-    List<Map<String, dynamic>> weekData,
-    WorkoutProvider provider,
-  ) {
-    final workouts = provider.workouts ?? [];
-    if (workouts.isEmpty) return [];
+  @override
+  Widget build(BuildContext context) {
+    final dashboardProvider = Provider.of<DashboardProvider>(context);
 
-    return weekData.asMap().entries.map((entry) {
-      double totalTonnage = 0;
-      final date = entry.value['date'] as DateTime?;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final cardBackgroundColor =
+        isDarkMode ? const Color(0xFF1E1E1E) : Colors.grey.shade50;
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
 
-      if (date != null) {
-        final dayWorkouts = workouts.where(
-          (w) =>
-              w.date.year == date.year &&
-              w.date.month == date.month &&
-              w.date.day == date.day,
-        );
-
-        for (var workout in dayWorkouts) {
-          for (var exercise in workout.exercises) {
-            for (var set in exercise.sets) {
-              totalTonnage += set.weight * set.reps;
-            }
-          }
-        }
-      }
-
-      return FlSpot(entry.key.toDouble(), totalTonnage);
-    }).toList();
-  }
-
-  List<FlSpot> _calculateIntensity(
-    List<Map<String, dynamic>> weekData,
-    WorkoutProvider provider,
-  ) {
-    final workouts = provider.workouts ?? [];
-    if (workouts.isEmpty) return [];
-
-    return weekData.asMap().entries.map((entry) {
-      double avgIntensity = 0;
-      int setCount = 0;
-      final date = entry.value['date'] as DateTime?;
-
-      if (date != null) {
-        final dayWorkouts = workouts.where(
-          (w) =>
-              w.date.year == date.year &&
-              w.date.month == date.month &&
-              w.date.day == date.day,
-        );
-
-        for (var workout in dayWorkouts) {
-          for (var exercise in workout.exercises) {
-            for (var set in exercise.sets) {
-              avgIntensity += set.reps;
-              setCount++;
-            }
-          }
-        }
-      }
-
-      return FlSpot(
-        entry.key.toDouble(),
-        setCount > 0 ? avgIntensity / setCount : 0,
-      );
-    }).toList();
-  }
-
-  List<FlSpot> _calculateDensity(
-    List<Map<String, dynamic>> weekData,
-    WorkoutProvider provider,
-  ) {
-    final workouts = provider.workouts ?? [];
-    if (workouts.isEmpty) return [];
-
-    return weekData.asMap().entries.map((entry) {
-      int totalReps = 0;
-      final date = entry.value['date'] as DateTime?;
-
-      if (date != null) {
-        final dayWorkouts = workouts.where(
-          (w) =>
-              w.date.year == date.year &&
-              w.date.month == date.month &&
-              w.date.day == date.day,
-        );
-
-        for (var workout in dayWorkouts) {
-          for (var exercise in workout.exercises) {
-            for (var set in exercise.sets) {
-              totalReps += set.reps;
-            }
-          }
-        }
-      }
-
-      // Assuming 60 minutes per workout
-      double density = totalReps / 60.0;
-
-      return FlSpot(entry.key.toDouble(), density);
-    }).toList();
-  }
-
-  String _formatAxisLabel(double value) {
-    switch (_selectedMetric) {
-      case 'volume':
-        return '${value.toInt()}kg';
-      case 'tonnage':
-        return '${(value / 1000).toStringAsFixed(1)}t';
-      case 'intensity':
-        return value.toStringAsFixed(1);
-      case 'density':
-        return '${value.toStringAsFixed(1)}/min';
-      case 'calories':
-        return '${value.toInt()} cal';
-      default:
-        return value.toStringAsFixed(1);
-    }
+    return Card(
+      elevation: 2.0,
+      color: cardBackgroundColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildTopBar(context, textColor),
+            _buildWeeklySummaryRings(context, dashboardProvider),
+            _buildMainProgressRings(context, dashboardProvider),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
   }
 }

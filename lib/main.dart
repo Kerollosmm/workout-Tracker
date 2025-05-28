@@ -6,11 +6,13 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:workout_tracker/config/constants/app_constants.dart';
 import 'package:workout_tracker/core/models/workout.dart';
 import 'package:workout_tracker/features/dashboard/providers/dashboard_provider.dart';
+import 'package:workout_tracker/features/custom_exercise/providers/custom_exercise_provider.dart';
 import 'config/routes/app_routes.dart';
 import 'core/models/exercise.dart';
-import 'core/models/workout_model.dart';
+// Removed import of workout_model.dart to resolve conflict
 import 'core/models/workout_set.dart';
 import 'core/models/user_settings.dart';
+import 'core/models/body_data.dart'; // Added this import for BodyDataAdapter
 import 'core/providers/workout_provider.dart';
 import 'core/providers/exercise_provider.dart';
 import 'core/providers/analytics_provider.dart';
@@ -18,7 +20,6 @@ import 'core/providers/settings_provider.dart';
 import 'core/providers/user_provider.dart';
 import 'core/services/notification_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'core/models/body_data.dart';
 import 'core/providers/body_data_provider.dart';
 
 Future<void> initializeApp() async {
@@ -141,6 +142,13 @@ void main() async {
         ChangeNotifierProvider.value(value: exerciseProvider),
         ChangeNotifierProvider.value(value: bodyDataProvider),
         ChangeNotifierProvider.value(value: userProvider),
+
+        // Create CustomExerciseProvider, dependent on ExerciseProvider
+        ChangeNotifierProxyProvider<ExerciseProvider, CustomExerciseProvider>(
+          create: (context) => CustomExerciseProvider(exerciseProvider),
+          update: (_, exerciseProvider, customExerciseProvider) =>
+              customExerciseProvider ?? CustomExerciseProvider(exerciseProvider),
+        ),
 
         // Create DashboardProvider
         ChangeNotifierProxyProvider<WorkoutProvider, DashboardProvider>(

@@ -11,10 +11,6 @@ class RestTimerScreen extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => RestTimerProvider(),
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Rest Timer'),
-          elevation: 0,
-        ),
         body: const Center(
           child: Padding(
             padding: EdgeInsets.all(16.0),

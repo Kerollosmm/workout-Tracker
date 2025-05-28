@@ -11,23 +11,25 @@ class DarkTheme {
         primary: AppTheme.primaryColor,
         secondary: AppTheme.secondaryColor,
         error: AppTheme.errorColor,
-        background: AppTheme.backgroundDark,
-        surface: AppTheme.surfaceDark,
+        background: Color(0xFF1A1A1A), // Slightly darker background
+        surface: Color(0xFF262626), // Slightly lighter surface
+        onSurface: Colors.white,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
       ),
-      scaffoldBackgroundColor: AppTheme.backgroundDark,
-      appBarTheme: const AppBarTheme(
+      scaffoldBackgroundColor: Color(0xFF1A1A1A),
+      appBarTheme: AppBarTheme(
         elevation: 0,
-        backgroundColor: AppTheme.cardDark,
-        foregroundColor: AppTheme.textPrimaryDark,
+        backgroundColor: Color(0xFF2C2C2C), // Updated background color
+        foregroundColor: Colors.white,
         centerTitle: true,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          elevation: 0,
           backgroundColor: AppTheme.primaryColor,
-          foregroundColor: AppTheme.textPrimaryDark,
+          foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.borderRadius_xl),
+            borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
           ),
           padding: const EdgeInsets.symmetric(
             horizontal: AppTheme.spacing_l,
@@ -36,16 +38,16 @@ class DarkTheme {
         ),
       ),
       cardTheme: CardTheme(
-        elevation: 0,
+        color: Color(0xFF262626),
+        elevation: 2,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.borderRadius_l),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
         ),
-        color: AppTheme.cardDark,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: AppTheme.surfaceDark,
+        backgroundColor: Color(0xFF262626),
         selectedColor: AppTheme.primaryColor.withOpacity(0.2),
-        labelStyle: const TextStyle(color: AppTheme.textPrimaryDark),
+        labelStyle: const TextStyle(color: Colors.white),
         secondaryLabelStyle: const TextStyle(color: AppTheme.primaryColor),
         padding: const EdgeInsets.symmetric(
           horizontal: AppTheme.spacing_m,
@@ -57,7 +59,7 @@ class DarkTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppTheme.surfaceDark,
+        fillColor: Color(0xFF262626),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTheme.borderRadius_l),
           borderSide: BorderSide.none,
@@ -80,42 +82,38 @@ class DarkTheme {
         ),
       ),
       textTheme: TextTheme(
-        headlineMedium: AppTheme.headingStyle.copyWith(
-          color: AppTheme.textPrimaryDark,
+        titleLarge: TextStyle(
+          color: Colors.white,
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
         ),
-        titleLarge: AppTheme.subheadingStyle.copyWith(
-          color: AppTheme.textPrimaryDark,
-        ),
-        bodyLarge: AppTheme.bodyStyle.copyWith(
-          color: AppTheme.textPrimaryDark,
-        ),
-        bodyMedium: AppTheme.captionStyle.copyWith(
-          color: AppTheme.textSecondaryDark,
-        ),
+        bodyLarge: TextStyle(color: Colors.white, fontSize: 16),
+        bodyMedium: TextStyle(color: Colors.white70, fontSize: 14),
+        headlineMedium: AppTheme.headingStyle.copyWith(color: Colors.white),
         labelLarge: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
-          color: AppTheme.textPrimaryDark,
+          color: Colors.white,
           letterSpacing: -0.2,
         ),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: AppTheme.cardDark,
+        backgroundColor: Color(0xFF262626),
         selectedItemColor: AppTheme.primaryColor,
-        unselectedItemColor: AppTheme.textSecondaryDark,
+        unselectedItemColor: Colors.white70,
         elevation: 0,
         type: BottomNavigationBarType.fixed,
       ),
       dividerTheme: const DividerThemeData(
         thickness: 1,
-        color: AppTheme.surfaceDark,
+        color: Color(0xFF262626),
       ),
       checkboxTheme: CheckboxThemeData(
         fillColor: MaterialStateProperty.resolveWith((states) {
           if (states.contains(MaterialState.selected)) {
             return AppTheme.primaryColor;
           }
-          return AppTheme.textSecondaryDark;
+          return Colors.white70;
         }),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.borderRadius_s),
@@ -126,13 +124,13 @@ class DarkTheme {
           if (states.contains(MaterialState.selected)) {
             return AppTheme.primaryColor;
           }
-          return AppTheme.textSecondaryDark;
+          return Colors.white70;
         }),
         trackColor: MaterialStateProperty.resolveWith((states) {
           if (states.contains(MaterialState.selected)) {
             return AppTheme.primaryColor.withOpacity(0.3);
           }
-          return AppTheme.surfaceDark;
+          return Color(0xFF262626);
         }),
       ),
     );

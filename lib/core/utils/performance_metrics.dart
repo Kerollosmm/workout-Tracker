@@ -83,12 +83,6 @@ class PerformanceMetrics {
   }
   
   // 4. Body Composition Calculations
-  static double calculateBMI(double weight, double height) {
-    // BMI = Weight (kg) / Height (m)²
-    if (height == 0) return 0;
-    return weight / (pow(height, 2));
-  }
-  
   static double calculateFFMI(double fatFreeMass, double height) {
     // FFMI = Fat Free Mass (kg) / Height (m)²
     if (height == 0) return 0;
@@ -175,4 +169,12 @@ class PerformanceMetrics {
     if (startOfMonthValue == 0) return 0;
     return ((endOfMonthValue - startOfMonthValue) / startOfMonthValue) * 100;
   }
+  
+  // Removed calculateBMI method 2025-05-28
+  // static double calculateBMI(double weight, double height) {
+  //   // BMI = Weight (kg) / Height (m)²
+  //   if (height <= 0) return 0;
+  //   final heightInMeters = height / 100; // Assuming height is in cm
+  //   return weight / (heightInMeters * heightInMeters);
+  // }
 }

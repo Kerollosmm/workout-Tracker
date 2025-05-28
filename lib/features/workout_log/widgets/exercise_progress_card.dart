@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../config/themes/app_theme.dart';
 import '../../../core/models/workout.dart';
 import 'editable_rest_timer.dart';
 
@@ -24,45 +25,43 @@ class ExerciseProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate progress metrics
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final Color currentTextColor = isDarkMode ? AppTheme.primaryTextColor : Colors.black87;
+    final Color currentSecondaryTextColor = isDarkMode ? AppTheme.secondaryTextColor : Colors.black54;
+    final Color currentBorderColor = isDarkMode ? AppTheme.primaryTextColor.withOpacity(0.2) : Colors.grey.shade400;
+    final Color currentCardBgColor = isDarkMode ? AppTheme.cardColor : Colors.white;
+    final Color currentSurfaceColor = isDarkMode ? AppTheme.surfaceColor : Colors.grey.shade100;
+
     final totalSets = exercise.sets.length;
     final completedSets = exercise.sets.where((set) => set.reps > 0).length;
     final totalWeight = exercise.sets.fold<double>(0, (sum, set) => sum + (set.weight * set.reps));
-    
+
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(AppTheme.spacing_m),
       decoration: BoxDecoration(
-        color: const Color(0xFF2D2D2D),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: currentCardBgColor,
+        borderRadius: BorderRadius.circular(AppTheme.borderRadius_l),
       ),
       child: Column(
         children: [
-          // Header
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppTheme.spacing_m),
             decoration: BoxDecoration(
-              color: const Color(0xFF363636),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              color: currentSurfaceColor,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.borderRadius_l)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.fitness_center, color: Colors.white),
-                const SizedBox(width: 12),
+                Icon(Icons.fitness_center, color: AppTheme.getColorForMuscleGroup(exercise.muscleGroup)),
+                const SizedBox(width: AppTheme.spacing_m),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         exercise.exerciseName,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: currentTextColor,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -70,7 +69,7 @@ class ExerciseProgressCard extends StatelessWidget {
                       Text(
                         exercise.muscleGroup,
                         style: TextStyle(
-                          color: Colors.grey[400],
+                          color: currentSecondaryTextColor,
                           fontSize: 14,
                         ),
                       ),
@@ -79,54 +78,53 @@ class ExerciseProgressCard extends StatelessWidget {
                 ),
                 if (!isReadOnly)
                   IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
+                    icon: Icon(Icons.delete, color: AppTheme.moveRingColor),
                     onPressed: onDelete,
+                    tooltip: 'Delete Exercise',
                   ),
               ],
             ),
           ),
-          
-          // Progress Indicators
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppTheme.spacing_m),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildProgressIndicator(
+                  context: context,
                   value: completedSets / (totalSets == 0 ? 1 : totalSets),
-                  color: Colors.green,
-                  icon: Icons.check_circle,
+                  color: AppTheme.exerciseRingColor,
+                  icon: Icons.check_circle_outline,
                   label: 'Sets',
                   text: '$completedSets/$totalSets',
                 ),
                 _buildProgressIndicator(
-                  value: totalWeight / 1000, // Normalize for visualization
-                  color: Colors.orange,
-                  icon: Icons.local_fire_department,
+                  context: context,
+                  value: totalWeight / 1000,
+                  color: AppTheme.standRingColor,
+                  icon: Icons.fitness_center,
                   label: 'Volume',
-                  text: '${totalWeight.toStringAsFixed(1)} kg',
+                  text: '${totalWeight.toStringAsFixed(0)} kg',
                 ),
                 _buildProgressIndicator(
+                  context: context,
                   value: exercise.sets.where((s) => s.isHardSet).length / (totalSets == 0 ? 1 : totalSets),
-                  color: Colors.blue,
-                  icon: Icons.timer,
+                  color: AppTheme.moveRingColor,
+                  icon: Icons.star_outline,
                   label: 'Hard Sets',
                   text: '${exercise.sets.where((s) => s.isHardSet).length}',
                 ),
               ],
             ),
           ),
-
-          // Rest Timer
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: EditableRestTimer(
-              initialSeconds: 60,
-              onTimeChanged: onRestTimeChanged,
+          if (!isReadOnly)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_m, vertical: AppTheme.spacing_s),
+              child: EditableRestTimer(
+                initialSeconds: exercise.restTimeInSeconds ?? 60,
+                onTimeChanged: onRestTimeChanged,
+              ),
             ),
-          ),
-
-          // Sets List
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -134,30 +132,45 @@ class ExerciseProgressCard extends StatelessWidget {
             itemBuilder: (context, setIndex) {
               final set = exercise.sets[setIndex];
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_m, vertical: AppTheme.spacing_xs),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: setIndex == exercise.sets.length - 1 ? Colors.transparent : currentBorderColor.withOpacity(0.3),
+                      width: 0.5,
+                    ),
+                  ),
+                ),
                 child: Row(
                   children: [
-                    Text(
-                      'Set ${setIndex + 1}',
-                      style: const TextStyle(color: Colors.white70),
+                    SizedBox(
+                      width: 50,
+                      child: Text(
+                        'Set ${setIndex + 1}',
+                        style: TextStyle(color: currentSecondaryTextColor, fontSize: 14),
+                      ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: AppTheme.spacing_s),
                     Expanded(
                       child: isReadOnly
                           ? Text(
                               '${set.weight} kg',
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: currentTextColor, fontSize: 16, fontWeight: FontWeight.w500),
                             )
                           : TextFormField(
-                              initialValue: set.weight.toString(),
-                              style: const TextStyle(color: Colors.white),
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Weight (kg)',
-                                labelStyle: TextStyle(color: Colors.grey),
+                              initialValue: set.weight.toStringAsFixed(set.weight.truncateToDouble() == set.weight ? 0 : 1),
+                              style: TextStyle(color: currentTextColor, fontSize: 16),
+                              keyboardType: TextInputType.numberWithOptions(decimal: true),
+                              textAlign: TextAlign.center,
+                              decoration: InputDecoration(
                                 enabledBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.grey),
+                                  borderSide: BorderSide(color: Colors.transparent),
                                 ),
+                                focusedBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(color: AppTheme.exerciseRingColor, width: 1),
+                                ),
+                                contentPadding: EdgeInsets.symmetric(vertical: AppTheme.spacing_xs),
+                                isDense: true,
                               ),
                               onChanged: (value) => onUpdateSet?.call(
                                 setIndex,
@@ -166,23 +179,27 @@ class ExerciseProgressCard extends StatelessWidget {
                               ),
                             ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: AppTheme.spacing_m),
                     Expanded(
                       child: isReadOnly
                           ? Text(
                               '${set.reps} reps',
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: currentTextColor, fontSize: 16, fontWeight: FontWeight.w500),
                             )
                           : TextFormField(
                               initialValue: set.reps.toString(),
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: currentTextColor, fontSize: 16),
                               keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Reps',
-                                labelStyle: TextStyle(color: Colors.grey),
+                              textAlign: TextAlign.center,
+                              decoration: InputDecoration(
                                 enabledBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.grey),
+                                  borderSide: BorderSide(color: Colors.transparent),
                                 ),
+                                focusedBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(color: AppTheme.exerciseRingColor, width: 1),
+                                ),
+                                contentPadding: EdgeInsets.symmetric(vertical: AppTheme.spacing_xs),
+                                isDense: true,
                               ),
                               onChanged: (value) => onUpdateSet?.call(
                                 setIndex,
@@ -195,8 +212,11 @@ class ExerciseProgressCard extends StatelessWidget {
                       IconButton(
                         icon: Icon(
                           set.isHardSet ? Icons.star : Icons.star_border,
-                          color: set.isHardSet ? Colors.yellow : Colors.grey,
+                          color: set.isHardSet ? AppTheme.standRingColor : currentSecondaryTextColor,
+                          size: AppTheme.iconSize_m,
                         ),
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(),
                         onPressed: () => onUpdateSet?.call(
                           setIndex,
                           setIndex,
@@ -204,7 +224,9 @@ class ExerciseProgressCard extends StatelessWidget {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                        icon: Icon(Icons.remove_circle_outline, color: AppTheme.moveRingColor.withOpacity(0.7), size: AppTheme.iconSize_m),
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(),
                         onPressed: () => onRemoveSet?.call(setIndex, setIndex),
                       ),
                     ],
@@ -213,22 +235,21 @@ class ExerciseProgressCard extends StatelessWidget {
               );
             },
           ),
-
-          // Add Set Button - Only show if not read-only
           if (!isReadOnly)
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: TextButton.icon(
-                icon: const Icon(Icons.add, color: Colors.white),
-                label: const Text('Add Set', style: TextStyle(color: Colors.white)),
-                style: TextButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                ),
+              padding: const EdgeInsets.all(AppTheme.spacing_m),
+              child: ElevatedButton.icon(
+                icon: Icon(Icons.add, color: AppTheme.primaryTextColor),
+                label: Text('Add Set', style: TextStyle(color: AppTheme.primaryTextColor, fontWeight: FontWeight.bold)),
                 onPressed: () => onAddSet?.call(exercise.sets.length),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.exerciseRingColor.withOpacity(0.8),
+                  minimumSize: Size(double.infinity, 44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.borderRadius_s),
+                  ),
+                  elevation: 0,
+                ),
               ),
             ),
         ],
@@ -237,44 +258,45 @@ class ExerciseProgressCard extends StatelessWidget {
   }
 
   Widget _buildProgressIndicator({
+    required BuildContext context,
     required double value,
     required Color color,
     required IconData icon,
     required String label,
     required String text,
   }) {
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final Color currentTextColor = isDarkMode ? AppTheme.primaryTextColor : Colors.black87;
+    final Color currentSecondaryTextColor = isDarkMode ? AppTheme.secondaryTextColor : Colors.black54;
+
     return Column(
       children: [
         SizedBox(
-          height: 60,
           width: 60,
+          height: 60,
           child: Stack(
+            alignment: Alignment.center,
             children: [
               CircularProgressIndicator(
-                value: value.clamp(0, 1),
-                backgroundColor: color.withOpacity(0.2),
+                value: value.isNaN || value.isInfinite ? 0 : value.clamp(0.0, 1.0),
+                strokeWidth: 5,
                 valueColor: AlwaysStoppedAnimation<Color>(color),
-                strokeWidth: 8,
+                backgroundColor: color.withOpacity(0.2),
               ),
-              Center(
-                child: Icon(icon, color: color),
-              ),
+              Icon(icon, color: color, size: AppTheme.iconSize_l),
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppTheme.spacing_s),
         Text(
           label,
-          style: TextStyle(color: Colors.grey[400]),
+          style: TextStyle(color: currentSecondaryTextColor, fontSize: 12),
         ),
         Text(
           text,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: currentTextColor, fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ],
     );
   }
-} 
+}

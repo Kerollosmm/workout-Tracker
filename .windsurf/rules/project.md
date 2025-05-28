@@ -105,4 +105,3 @@ Always prioritize:
 - **User experience**
 
 Follow these rules to ensure smooth collaboration and future-proof development.
-

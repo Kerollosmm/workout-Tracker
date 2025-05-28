@@ -2,11 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:workout_tracker/config/constants/app_constants.dart';
+// import 'package:workout_tracker/config/constants/app_constants.dart'; // Removed due to name collision
 import '../../../config/themes/app_theme.dart';
 import '../../../core/models/exercise.dart';
 import '../providers/custom_exercise_provider.dart';
-import '../../../utils/validators.dart';
+// import '../../../utils/validators.dart'; // Removed unused import
 import 'muscle_group_selector.dart';
 
 class ExerciseForm extends StatefulWidget {
@@ -22,6 +22,7 @@ class _ExerciseFormState extends State<ExerciseForm> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _notesController;
+  bool _isProcessing = false; // Added for loading state
   
   @override
   void initState() {
@@ -119,33 +120,41 @@ class _ExerciseFormState extends State<ExerciseForm> {
                 child: SizedBox(
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: () async {
-                if (_formKey.currentState!.validate()) {
-                  String? error;
-                  if (widget.exercise != null) {
-                    // Update existing exercise
-                    error = await provider.updateExercise(widget.exercise!.id);
-                  } else {
-                    // Create new exercise
-                    error = await provider.saveExercise();
-                  }
+                    onPressed: _isProcessing ? null : () async {
+                      if (_formKey.currentState!.validate()) {
+                        setState(() => _isProcessing = true);
+                        try {
+                          if (widget.exercise != null) {
+                            // Update existing exercise
+                            await provider.updateExercise(widget.exercise!.id);
+                          } else {
+                            // Create new exercise
+                            await provider.saveExercise();
+                          }
 
-                  if (error == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Exercise ${widget.exercise != null ? 'updated' : 'added'} successfully')),
-                    );
-                    Navigator.pop(context);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(error), backgroundColor: Colors.red),
-                    );
-                  }
-                }
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Exercise ${widget.exercise != null ? 'updated' : 'saved'} successfully')),
+                          );
+                          Navigator.pop(context); // Pop on success
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed: ${e.toString()}'), backgroundColor: Colors.red),
+                          );
+                        } finally {
+                          if (mounted) {
+                            setState(() => _isProcessing = false);
+                          }
+                        }
+                      }
                     },
-                    child: Text(
-                      widget.exercise != null ? 'Update Exercise' : 'Save Exercise',
-                      style: TextStyle(fontSize: 16),
-                    ),
+                    child: _isProcessing 
+                        ? CircularProgressIndicator(color: Colors.white) 
+                        : Text(
+                            widget.exercise != null ? 'Update Exercise' : 'Save Exercise',
+                            style: TextStyle(fontSize: 16),
+                          ),
                     style: ElevatedButton.styleFrom(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -160,7 +169,7 @@ class _ExerciseFormState extends State<ExerciseForm> {
                   child: SizedBox(
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: () async {
+                      onPressed: _isProcessing ? null : () async {
                         final confirm = await showDialog<bool>(
                           context: context,
                           builder: (context) => AlertDialog(
@@ -180,22 +189,30 @@ class _ExerciseFormState extends State<ExerciseForm> {
                         );
 
                         if (confirm ?? false) {
-                          final error = await provider.deleteExercise(widget.exercise!.id);
-                          if (!mounted) return;
+                          setState(() => _isProcessing = true);
+                          try {
+                            await provider.deleteExercise(widget.exercise!.id);
+                            if (!mounted) return;
 
-                          if (error == null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('Exercise deleted successfully')),
                             );
-                            Navigator.pop(context);
-                          } else {
+                            Navigator.pop(context); // Pop on success
+                          } catch (e) {
+                            if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(error), backgroundColor: Colors.red),
+                              SnackBar(content: Text('Failed to delete: ${e.toString()}'), backgroundColor: Colors.red),
                             );
+                          } finally {
+                            if (mounted) {
+                              setState(() => _isProcessing = false);
+                            }
                           }
                         }
                       },
-                      child: Text('Delete', style: TextStyle(color: Colors.white)),
+                      child: _isProcessing
+                        ? CircularProgressIndicator(color: Colors.white)
+                        : Text('Delete', style: TextStyle(color: Colors.white)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         shape: RoundedRectangleBorder(

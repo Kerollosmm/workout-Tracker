@@ -28,11 +28,4 @@ class BodyDataProvider with ChangeNotifier {
     _bodyDataBox.deleteAt(index);
     notifyListeners();
   }
-
-  double? getLatestBMI() {
-    if (entries.isEmpty) return null;
-    final latest = entries.first;
-    if (latest.height == 0) return null;
-    return latest.weight / (latest.height * latest.height);
-  }
-} 
+}

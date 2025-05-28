@@ -32,24 +32,29 @@ class _CustomExerciseScreenState extends State<CustomExerciseScreen> {
 
     setState(() => _isSaving = true);
 
-    final error =
-        await Provider.of<CustomExerciseProvider>(
-          context,
-          listen: false,
-        ).saveExercise();
-
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-
-    if (error != null) {
-      ScaffoldMessenger.of(
+    try {
+      // Updated 2024-07-26: Changed to await void method and use try-catch
+      await Provider.of<CustomExerciseProvider>(
         context,
-      ).showSnackBar(CustomSnackbar.error(message: error));
-    } else {
+        listen: false,
+      ).saveExercise();
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         CustomSnackbar.success(message: 'Exercise saved successfully'),
       );
-      Navigator.pop(context);
+      Navigator.pop(context); // Pop on success
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        CustomSnackbar.error(
+          message: 'Failed to save exercise: ${e.toString()}',
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
@@ -137,35 +142,12 @@ class _CustomExerciseScreenState extends State<CustomExerciseScreen> {
                 child: StatefulBuilder(
                   builder:
                       (context, setState) => ElevatedButton(
-                        onPressed:
-                            _isSaving
-                                ? null
-                                : () async {
-                                  setState(() => _isSaving = true);
-                                  final error =
-                                      await Provider.of<CustomExerciseProvider>(
-                                        context,
-                                        listen: false,
-                                      ).saveExercise();
-                                  setState(() => _isSaving = false);
-
-                                  if (!context.mounted) return;
-
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        error ?? 'Exercise saved successfully!',
-                                      ),
-                                      backgroundColor:
-                                          error != null
-                                              ? Colors.red
-                                              : Colors.green,
-                                    ),
-                                  );
-                                },
+                        onPressed: _isSaving ? null : _saveExercise,
                         child:
                             _isSaving
-                                ? const CircularProgressIndicator()
+                                ? const CircularProgressIndicator(
+                                  color: Colors.white,
+                                )
                                 : const Text('Save Exercise'),
                       ),
                 ),

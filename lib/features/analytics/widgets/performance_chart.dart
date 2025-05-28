@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:workout_tracker/config/constants/app_constants.dart';
+// import 'package:workout_tracker/config/constants/app_constants.dart'; // Removed due to name collision with themes/app_theme.dart
 import '../../../config/themes/app_theme.dart';
 import '../../../core/providers/settings_provider.dart';
 
@@ -26,178 +26,169 @@ class PerformanceChartProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     final theme = Theme.of(context);
-    final settings = Provider.of<SettingsProvider>(context);
-    final chartColor = lineColor ?? theme.primaryColor;
+    final chartColor = lineColor ?? theme.colorScheme.secondary;
+
+    if (data.isEmpty) {
+      return Center(
+        child: Text(
+          'No data available for $title',
+          style: theme.textTheme.bodyMedium?.copyWith(color: theme.textTheme.bodySmall?.color),
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.only(left: 16.0, top:8.0, bottom: 8.0),
           child: Text(
             title,
-            style: theme.textTheme.titleLarge,
-            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
         ),
-        _buildChartContainer(theme, chartColor, settings),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 16.0, left: 8.0, bottom: 8.0),
+            child: _buildChartContainer(context, theme, chartColor, settingsProvider),
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildChartContainer(
+    BuildContext context, 
     ThemeData theme,
     Color chartColor,
     SettingsProvider settings,
   ) {
-    return AspectRatio(
-      aspectRatio: 1.7,
-      child: data.isEmpty
-          ? Center(
-              child: Text(
-                'No data available',
-                style: theme.textTheme.bodyLarge,
-              ),
-            )
-          : LineChart(
-              LineChartData(
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: theme.brightness == Brightness.dark 
-                      ? Colors.grey[800]! 
-                      : Colors.grey[300]!,
-                    strokeWidth: 1,
-                  ),
-                ),
-                titlesData: _buildTitlesData(settings),
-                borderData: FlBorderData(show: false),
-                minX: 0,
-                maxX: data.length > 1 ? (data.length - 1).toDouble() : 1,
-                minY: 0,
-                maxY: _calculateMaxY(),
-                lineBarsData: _buildChartLines(chartColor, theme),
-                lineTouchData: _buildTouchData(settings),
-                backgroundColor: theme.cardColor,
-              ),
-            ),
+    return LineChart(
+      LineChartData(
+        minY: 0,
+        maxY: _calculateMaxY(),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          getDrawingHorizontalLine: (value) => FlLine(
+            color: theme.dividerColor.withAlpha(128), 
+            strokeWidth: 1,
+          ),
+          horizontalInterval: _calculateInterval(),
+        ),
+        borderData: FlBorderData(show: false),
+        titlesData: _buildTitlesData(context, settings), 
+        lineBarsData: _buildChartLines(context, chartColor, theme), 
+        lineTouchData: _buildTouchData(context, settings, theme), 
+      ),
+      duration: const Duration(milliseconds: 250),
     );
   }
 
-  FlTitlesData _buildTitlesData(SettingsProvider settings) {
+  double _calculateInterval() {
+    final effectiveMaxY = _calculateMaxY();
+    if (effectiveMaxY <= 0) return 10;
+    if (effectiveMaxY <= 10) return 2;
+    if (effectiveMaxY <= 50) return 10;
+    if (effectiveMaxY <= 100) return 20;
+    if (effectiveMaxY <= 200) return 40;
+    return 50;
+  }
+
+  // Updated 2025-05-21: Rebuilt titles data to match fl_chart 0.70.2 API
+  FlTitlesData _buildTitlesData(BuildContext context, SettingsProvider settings) {
     return FlTitlesData(
       show: true,
       rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      bottomTitles: AxisTitles(
-        sideTitles: SideTitles(
-          showTitles: true,
-          reservedSize: 32,
-          interval: 1,
-          getTitlesWidget: (value, meta) => _buildDateTitle(value, meta),
-        ),
-      ),
       leftTitles: AxisTitles(
         sideTitles: SideTitles(
           showTitles: true,
-          reservedSize: 45,
-          interval: _calculateMaxY() / 5,
-          getTitlesWidget: (value, meta) => _buildValueTitle(value, settings, meta),
+          interval: _calculateInterval(),
+          getTitlesWidget: (value, meta) => _buildValueTitle(context, value, settings, meta),
+          reservedSize: 40,
+        ),
+      ),
+      bottomTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          getTitlesWidget: (value, meta) => _buildDateTitle(context, value, meta),
+          reservedSize: 25,
         ),
       ),
     );
   }
 
-  Widget _buildDateTitle(double value, TitleMeta meta) {
-    final index = value.toInt();
-    if (index < 0 || index >= data.length) return const SizedBox.shrink();
+  // Updated 2025-05-21: Completely rebuilt date title function to match fl_chart 0.70.2 API
+  Widget _buildDateTitle(BuildContext context, double value, TitleMeta meta) { 
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white70 : Colors.black54;
+    if (value.toInt() < 0 || value.toInt() >= data.length) {
+      return Container();
+    }
+    final date = data[value.toInt()]['date'] as DateTime;
     
-    final date = data[index]['date'] as DateTime;
-    return Padding(
-      padding: const EdgeInsets.only(top: 8.0),
-      child: SideTitleWidget(
-        meta: meta,
-        child: Text(
-          DateFormat('MMM d').format(date),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: AppTheme.textSecondaryLight.withAlpha(179),
-          ),
-        ),
-      ),
+    // Simple text rendering as a fallback for fl_chart 0.70.2
+    return Text(
+      DateFormat('MMM d').format(date),
+      style: TextStyle(fontSize: 10, color: textColor),
+      textAlign: TextAlign.center,
     );
   }
 
-  Widget _buildValueTitle(double value, SettingsProvider settings, TitleMeta meta) {
-    return SideTitleWidget(
-      meta: meta,
-      child: Text(
-        '${value.toStringAsFixed(settings.weightUnit == 'kg' ? 1 : 0)}$valueUnit',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: AppTheme.textSecondaryLight.withAlpha(179),
-        ),
-      ),
+  // Updated 2025-05-21: Completely rebuilt value title function to match fl_chart 0.70.2 API
+  Widget _buildValueTitle(BuildContext context, double value, SettingsProvider settings, TitleMeta meta) { 
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white70 : Colors.black54;
+    // Basic filtering for cleaner axis
+    if (value == 0 && meta.max > 0) return Container(); // Don't show 0 if there are positive values
+    if (value == meta.max && data.length > 1) return Container(); // Avoid showing max value label if it's too close to others
+
+    // Simple text rendering as a fallback for fl_chart 0.70.2
+    return Text(
+      value.toStringAsFixed(settings.weightUnit == 'kg' ? 1 : 0),
+      style: TextStyle(fontSize: 10, color: textColor),
+      textAlign: TextAlign.right,
     );
   }
 
-  List<LineChartBarData> _buildChartLines(Color chartColor, ThemeData theme) {
-    final spots = data.asMap().entries.map((entry) {
-      final value = (entry.value['value'] as num).toDouble();
-      return FlSpot(entry.key.toDouble(), value);
-    }).toList();
+  List<LineChartBarData> _buildChartLines(BuildContext context, Color chartColor, ThemeData theme) { 
+    final spots = List.generate(data.length, (index) {
+      final yValue = (data[index]['value'] as num?)?.toDouble() ?? 0.0;
+      return FlSpot(index.toDouble(), yValue);
+    });
 
-    final lines = [
+    final averageValue = showAverageLine && spots.isNotEmpty
+        ? spots.map((spot) => spot.y).reduce((a, b) => a + b) / spots.length
+        : null;
+
+    List<LineChartBarData> lines = [
       LineChartBarData(
         spots: spots,
         isCurved: true,
         color: chartColor,
-        barWidth: 2.5,
+        barWidth: 3,
         isStrokeCapRound: true,
-        dotData: FlDotData(
-          show: true,
-          getDotPainter: (spot, percent, chart, index) => FlDotCirclePainter(
-            radius: 4,
-            color: theme.cardColor,
-            strokeWidth: 2,
-            strokeColor: chartColor,
-          ),
-        ),
+        dotData: const FlDotData(show: false),
         belowBarData: BarAreaData(
           show: true,
-          gradient: LinearGradient(
-            colors: [
-              chartColor.withAlpha(77),
-              chartColor.withAlpha(13),
-            ],
-            stops: const [0.0, 0.8],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          color: chartColor.withOpacity(0.15),
         ),
       ),
     ];
 
-    if (showAverageLine) {
-      final average = data.isEmpty 
-          ? 0.0 
-          : data.map((e) => (e['value'] as num).toDouble())
-              .reduce((a, b) => a + b) / data.length;
-      
+    if (averageValue != null) {
       lines.add(
         LineChartBarData(
           spots: [
-            FlSpot(0, average),
-            FlSpot((data.length - 1).toDouble(), average)
+            FlSpot(0, averageValue),
+            FlSpot((data.length - 1).toDouble(), averageValue),
           ],
-          color: chartColor.withAlpha(128),
-          barWidth: 1,
-          dashArray: const [5, 5],
-          isCurved: false,
+          color: theme.hintColor.withOpacity(0.7),
+          barWidth: 2,
+          dashArray: [4, 4],
           dotData: const FlDotData(show: false),
         ),
       );
@@ -206,38 +197,67 @@ class PerformanceChartProgress extends StatelessWidget {
     return lines;
   }
 
-  LineTouchData _buildTouchData(SettingsProvider settings) {
+  LineTouchData _buildTouchData(BuildContext context, SettingsProvider settings, ThemeData theme) { 
+    // Updated 2025-05-21: Rebuilt LineTouchData to match fl_chart 0.70.2 API
     return LineTouchData(
       handleBuiltInTouches: true,
       touchTooltipData: LineTouchTooltipData(
-        tooltipBorder: BorderSide(color: AppTheme.primaryColor.withAlpha(26)),
-        tooltipRoundedRadius: 8,
-        tooltipPadding: const EdgeInsets.all(8),
+        // In fl_chart 0.70.2, using getTooltipColor instead of tooltipBgColor
+        getTooltipColor: (_) => theme.cardColor.withAlpha(230),
+        tooltipBorder: BorderSide(color: AppTheme.primaryColor.withAlpha(100)),
+        tooltipRoundedRadius: AppTheme.borderRadius_m,
+        tooltipPadding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_s, vertical: AppTheme.spacing_xs),
         fitInsideHorizontally: true,
         fitInsideVertically: true,
         getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
           final index = spot.x.toInt();
+          if (index < 0 || index >= data.length) return null;
           final date = data[index]['date'] as DateTime;
+          final isDarkMode = Theme.of(context).brightness == Brightness.dark; 
+          final tooltipTextColor = isDarkMode ? Colors.white : Colors.black87;
+
           return LineTooltipItem(
             '${DateFormat.yMMMd().format(date)}\n'
             '${spot.y.toStringAsFixed(settings.weightUnit == 'kg' ? 1 : 0)}$valueUnit',
-            const TextStyle(
-              color: AppTheme.textPrimaryLight,
+            TextStyle(
+              color: tooltipTextColor,
               fontWeight: FontWeight.w500,
               fontSize: 12,
             ),
           );
-        }).toList(),
+        }).where((item) => item != null).toList().cast<LineTooltipItem>(),
       ),
+      getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
+        return spotIndexes.map((index) {
+          return TouchedSpotIndicatorData(
+            FlLine(color: barData.color ?? AppTheme.primaryColor, strokeWidth: 2),
+            FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                radius: 5,
+                color: barData.color ?? AppTheme.primaryColor,
+                strokeWidth: 1.5,
+                strokeColor: theme.scaffoldBackgroundColor, 
+              ),
+            ),
+          );
+        }).toList();
+      },
     );
   }
 
   double _calculateMaxY() {
     if (maxY != null) return maxY!;
-    if (data.isEmpty) return 10;
-
-    final maxValue = data.map((e) => e['value'] as double).reduce(
-      (a, b) => a > b ? a : b);
-    return maxValue * 1.2;
+    if (data.isEmpty) return 10.0; 
+    double maxVal = 0;
+    for (var item in data) {
+      final val = (item['value'] as num?)?.toDouble() ?? 0.0;
+      if (val > maxVal) maxVal = val;
+    }
+    if (showAverageLine && data.isNotEmpty) {
+      final averageValue = data.map((item) => (item['value'] as num?)?.toDouble() ?? 0.0).reduce((a, b) => a + b) / data.length;
+      if (averageValue > maxVal) maxVal = averageValue;
+    }
+    return maxVal == 0 ? 10.0 : (maxVal * 1.2).ceilToDouble(); 
   }
 }

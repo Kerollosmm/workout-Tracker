@@ -34,6 +34,26 @@ class Exercise extends HiveObject {
     this.iconPath,
   });
 
+  Exercise copyWith({
+    String? id,
+    String? name,
+    String? muscleGroup,
+    bool? isFavorite,
+    String? notes,
+    bool? isCustom,
+    String? iconPath,
+  }) {
+    return Exercise(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      muscleGroup: muscleGroup ?? this.muscleGroup,
+      isFavorite: isFavorite ?? this.isFavorite,
+      notes: notes ?? this.notes, // Allow notes to be explicitly set to null
+      isCustom: isCustom ?? this.isCustom,
+      iconPath: iconPath ?? this.iconPath, // Allow iconPath to be explicitly set to null
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

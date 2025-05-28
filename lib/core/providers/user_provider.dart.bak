@@ -104,64 +104,6 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Updated 2025-05-28: Added method to directly update photo URL
-  Future<void> updateUserPhotoUrl(String photoPath) async {
-    // If an existing photo is being replaced, delete the old one if it's in app's directory
-    if (_user.photoUrl.isNotEmpty && _user.photoUrl != photoPath) {
-      try {
-        final oldFile = File(_user.photoUrl);
-        if (await oldFile.exists()) {
-          // Check if the file is within the app's documents directory before deleting
-          final appDir = await getApplicationDocumentsDirectory();
-          if (path.isWithin(appDir.path, oldFile.path)) {
-            await oldFile.delete();
-            debugPrint('Old profile photo deleted: ${_user.photoUrl}');
-          }
-        }
-      } catch (e) {
-        debugPrint('Error deleting old profile photo: $e');
-      }
-    }
-
-    // If a new photoPath is provided and it's not empty, copy it to a persistent location
-    String finalPathToSave = photoPath;
-    if (photoPath.isNotEmpty) {
-      try {
-        final appDir = await getApplicationDocumentsDirectory();
-        final fileName = 'profile_${DateTime.now().millisecondsSinceEpoch}${path.extension(photoPath)}';
-        final savedImageFile = File(path.join(appDir.path, fileName));
-        
-        // Copy the picked file to the new persistent path
-        await File(photoPath).copy(savedImageFile.path);
-        finalPathToSave = savedImageFile.path;
-        debugPrint('New profile photo saved to: $finalPathToSave');
-
-        // If the original picked file (photoPath) is temporary (e.g., from cache), delete it if different from finalPathToSave
-        // This step is crucial if image_picker returns a path to a temporary/cache file
-        if (photoPath != finalPathToSave) {
-            final tempFile = File(photoPath);
-            if (await tempFile.exists()) {
-                // Be cautious here: ensure it's truly a temp file before deleting
-                // For simplicity, we assume if paths are different, original was temp.
-                // A more robust check might involve checking if photoPath is in a known cache directory.
-                // await tempFile.delete(); 
-                // debugPrint('Temporary picked file deleted: $photoPath');
-            }
-        }
-
-      } catch (e) {
-        debugPrint('Error copying/saving new profile photo: $e');
-        // If saving fails, don't update the URL to a potentially temporary/invalid path
-        // Potentially revert to no photo or keep old one, depending on desired UX
-        // For now, we'll proceed with the original photoPath if saving fails, but this might not be ideal
-      }
-    }
-
-    _user = _user.copyWith(photoUrl: finalPathToSave);
-    await _saveToPreferences('user_photo_url', finalPathToSave);
-    notifyListeners();
-  }
-
   Future<void> _saveToPreferences(String key, dynamic value) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -357,9 +299,7 @@ class UserProvider with ChangeNotifier {
                     rowIndex: rowIndex,
                   ),
                 )
-                .value = excel_package.TextCellValue(
-              workout.workoutName ?? "no data found ",
-            );
+                .value = excel_package.TextCellValue(workout.workoutName);
 
             // Exercise Name
             sheet

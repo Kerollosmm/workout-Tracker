@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../config/themes/app_theme.dart';
 import '../../../core/models/exercise.dart';
 
 class ExerciseSelector extends StatefulWidget {
@@ -41,51 +42,71 @@ class _ExerciseSelectorState extends State<ExerciseSelector> {
       .map((e) => e.muscleGroup)
       .toSet()
       .toList()..sort()];
+
+    // Determine theme colors
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final Color currentTextColor = isDarkMode ? AppTheme.primaryTextColor : Colors.black87;
+    final Color currentSecondaryTextColor = isDarkMode ? AppTheme.secondaryTextColor : Colors.black54;
+    final Color currentBorderColor = isDarkMode ? AppTheme.primaryTextColor.withOpacity(0.2) : Colors.grey.shade400;
+    final Color currentHintColor = isDarkMode ? AppTheme.secondaryTextColor.withOpacity(0.7) : Colors.grey.shade500;
+    final Color currentCardBgColor = isDarkMode ? AppTheme.cardColor : Colors.white;
+    final Color currentSurfaceColor = isDarkMode ? AppTheme.surfaceColor : Colors.grey.shade100;
     
     return Container(
       height: MediaQuery.of(context).size.height * 0.8,
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: currentCardBgColor, 
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
+          topLeft: Radius.circular(AppTheme.borderRadius_l), 
+          topRight: Radius.circular(AppTheme.borderRadius_l), 
         ),
       ),
       child: Column(
         children: [
           // Handle
           Container(
-            margin: EdgeInsets.only(top: 10),
+            margin: EdgeInsets.only(top: AppTheme.spacing_s, bottom: AppTheme.spacing_xs), 
             width: 40,
             height: 5,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(10),
+              color: isDarkMode ? AppTheme.secondaryTextColor.withOpacity(0.5) : Colors.grey[300], 
+              borderRadius: BorderRadius.circular(AppTheme.borderRadius_s),
             ),
           ),
           
           // Title
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing_m, horizontal: AppTheme.spacing_m), 
             child: Text(
               'Select Exercise',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
+                color: currentTextColor, 
               ),
             ),
           ),
           
           // Search bar
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_m), 
             child: TextField(
+              style: TextStyle(color: currentTextColor), 
               decoration: InputDecoration(
                 hintText: 'Search Exercises...',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                hintStyle: TextStyle(color: currentHintColor), 
+                prefixIcon: Icon(Icons.search, color: currentSecondaryTextColor), 
+                filled: true,
+                fillColor: currentSurfaceColor, 
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.borderRadius_s),
+                  borderSide: BorderSide(color: currentBorderColor), 
                 ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.borderRadius_s),
+                  borderSide: BorderSide(color: AppTheme.exerciseRingColor, width: 1.5), 
+                ),
+                contentPadding: EdgeInsets.symmetric(vertical: AppTheme.spacing_s, horizontal: AppTheme.spacing_m), 
               ),
               onChanged: (value) {
                 setState(() {
@@ -98,11 +119,11 @@ class _ExerciseSelectorState extends State<ExerciseSelector> {
           // Muscle group filter
           Container(
             height: 50,
-            margin: EdgeInsets.symmetric(vertical: 16),
+            margin: EdgeInsets.symmetric(vertical: AppTheme.spacing_m), 
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: muscleGroups.length,
-              padding: EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: AppTheme.spacing_m), 
               itemBuilder: (context, index) {
                 final muscleGroup = muscleGroups[index];
                 final isSelected = _selectedMuscleGroup == muscleGroup;
@@ -114,20 +135,22 @@ class _ExerciseSelectorState extends State<ExerciseSelector> {
                     });
                   },
                   child: Container(
-                    margin: EdgeInsets.only(right: 8),
-                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    margin: EdgeInsets.only(right: AppTheme.spacing_s), 
+                    padding: EdgeInsets.symmetric(horizontal: AppTheme.spacing_m, vertical: AppTheme.spacing_s), 
                     decoration: BoxDecoration(
                       color: isSelected 
-                        ? Theme.of(context).primaryColor 
-                        : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(20),
+                        ? AppTheme.exerciseRingColor 
+                        : currentSurfaceColor, 
+                      borderRadius: BorderRadius.circular(AppTheme.borderRadius_m), 
+                      border: isSelected ? null : Border.all(color: currentBorderColor) 
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       muscleGroup,
                       style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black,
+                        color: isSelected ? AppTheme.primaryTextColor : currentTextColor, 
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 14,
                       ),
                     ),
                   ),
@@ -140,22 +163,27 @@ class _ExerciseSelectorState extends State<ExerciseSelector> {
           Expanded(
             child: filteredExercises.isEmpty
                 ? Center(
-                    child: Text('No exercises found'),
+                    child: Text('No exercises found', style: TextStyle(color: currentSecondaryTextColor)), 
                   )
                 : ListView.builder(
+                    padding: EdgeInsets.symmetric(horizontal: AppTheme.spacing_xs), 
                     itemCount: filteredExercises.length,
                     itemBuilder: (context, index) {
                       final exercise = filteredExercises[index];
                       return ListTile(
-                        leading: Icon(Icons.fitness_center), // Replaced image with icon
-                        title: Text(exercise.name),
-                        subtitle: Text(exercise.muscleGroup),
+                        leading: Icon( 
+                          Icons.fitness_center, 
+                          color: AppTheme.getColorForMuscleGroup(exercise.muscleGroup),
+                        ),
+                        title: Text(exercise.name, style: TextStyle(color: currentTextColor)), 
+                        subtitle: Text(exercise.muscleGroup, style: TextStyle(color: currentSecondaryTextColor)), 
                         trailing: exercise.isFavorite
-                            ? Icon(Icons.star, color: Colors.amber)
+                            ? Icon(Icons.star, color: AppTheme.standRingColor) 
                             : null,
                         onTap: () {
                           Navigator.pop(context, exercise);
                         },
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.borderRadius_s)),
                       );
                     },
                   ),
@@ -163,26 +191,29 @@ class _ExerciseSelectorState extends State<ExerciseSelector> {
           
           // "Add Custom Exercise" button at the bottom
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(AppTheme.spacing_m), 
             child: ElevatedButton(
               onPressed: () {
                 Navigator.pushNamed(context, '/add_exercise');
               },
               child: Padding(
-                padding: const EdgeInsets.all(12.0),
+                padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing_m - AppTheme.spacing_xs, horizontal: AppTheme.spacing_s), 
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.add),
-                    SizedBox(width: 8),
-                    Text('Add Custom Exercise'),
+                    Icon(Icons.add, color: AppTheme.primaryTextColor), 
+                    SizedBox(width: AppTheme.spacing_s),
+                    Text('Add Custom Exercise', style: TextStyle(color: AppTheme.primaryTextColor, fontWeight: FontWeight.bold)), 
                   ],
                 ),
               ),
               style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.exerciseRingColor, 
+                minimumSize: Size(double.infinity, 50), 
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppTheme.borderRadius_s), 
                 ),
+                elevation: 0, 
               ),
             ),
           ),

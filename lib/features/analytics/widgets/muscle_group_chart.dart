@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:provider/provider.dart';
-import 'package:workout_tracker/config/constants/app_constants.dart';
+// Provider import removed - not used
+// import 'package:workout_tracker/config/constants/app_constants.dart'; // Removed due to name collision
 import 'package:workout_tracker/core/services/localization_service.dart';
 
 import '../../../config/themes/app_theme.dart';

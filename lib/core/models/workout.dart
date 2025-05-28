@@ -20,7 +20,7 @@ class Workout extends HiveObject {
   final String? notes;
 
   @HiveField(5)
-  final String workoutName;
+  final String? workoutName;
 
   Workout({
     required this.id,
@@ -28,7 +28,7 @@ class Workout extends HiveObject {
     required this.exercises,
     this.duration = 0,
     this.notes,
-    required this.workoutName,
+    this.workoutName,
   });
 
   // Helper methods to calculate workout stats
@@ -127,11 +127,15 @@ class WorkoutExercise {
   @HiveField(3)
   List<WorkoutSet> sets;
 
+  @HiveField(4) // Added 2025-05-23: Rest time for this exercise
+  final int? restTimeInSeconds;
+
   WorkoutExercise({
     required this.exerciseId,
     required this.exerciseName,
     required this.muscleGroup,
     required this.sets,
+    this.restTimeInSeconds, // Added 2025-05-23
   });
 
   WorkoutExercise copyWith({
@@ -139,12 +143,15 @@ class WorkoutExercise {
     String? exerciseName,
     String? muscleGroup,
     List<WorkoutSet>? sets,
+    int? restTimeInSeconds, // Added 2025-05-23
   }) {
     return WorkoutExercise(
       exerciseId: exerciseId ?? this.exerciseId,
       exerciseName: exerciseName ?? this.exerciseName,
       muscleGroup: muscleGroup ?? this.muscleGroup,
       sets: sets ?? List.from(this.sets),
+      restTimeInSeconds:
+          restTimeInSeconds ?? this.restTimeInSeconds, // Added 2025-05-23
     );
   }
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../config/themes/app_theme.dart';
 
 class EditableRestTimer extends StatefulWidget {
   final int initialSeconds;
@@ -88,61 +89,74 @@ class _EditableRestTimerState extends State<EditableRestTimer> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final Color currentTextColor = isDarkMode ? AppTheme.primaryTextColor : Colors.black87;
+    final Color currentSecondaryTextColor = isDarkMode ? AppTheme.secondaryTextColor : Colors.black54;
+    final Color currentBorderColor = isDarkMode ? AppTheme.primaryTextColor.withOpacity(0.2) : Colors.grey.shade400;
+    final Color currentCardBgColor = isDarkMode ? AppTheme.cardColor : Colors.white;
+
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(vertical: AppTheme.spacing_s),
+      padding: const EdgeInsets.all(AppTheme.spacing_l),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.circular(16),
+        color: currentCardBgColor,
+        borderRadius: BorderRadius.circular(AppTheme.borderRadius_l),
       ),
       child: Column(
         children: [
           if (!_isEditing)
             Text(
               _formatTime(_currentSeconds),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 64,
+              style: TextStyle(
+                color: currentTextColor,
+                fontSize: 56,
                 fontWeight: FontWeight.w300,
                 letterSpacing: 2,
               ),
             )
           else
-            TextField(
-              controller: _timeController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 32,
-              ),
-              decoration: const InputDecoration(
-                labelText: 'Minutes',
-                labelStyle: TextStyle(color: Colors.grey),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_xl),
+              child: TextField(
+                controller: _timeController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: TextStyle(
+                  color: currentTextColor,
+                  fontSize: 32,
                 ),
-                focusedBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.blue),
+                decoration: InputDecoration(
+                  labelText: 'Minutes',
+                  labelStyle: TextStyle(color: currentSecondaryTextColor),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: currentBorderColor),
+                  ),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: AppTheme.exerciseRingColor, width: 1.5),
+                  ),
+                  contentPadding: EdgeInsets.symmetric(vertical: AppTheme.spacing_s),
                 ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppTheme.spacing_xl),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _buildCircularButton(
                 icon: _isRunning ? Icons.pause : Icons.play_arrow,
                 onPressed: _isRunning ? _stopTimer : _startTimer,
-                color: Colors.blue,
+                color: AppTheme.exerciseRingColor,
+                isDarkMode: isDarkMode,
               ),
-              const SizedBox(width: 24),
+              const SizedBox(width: AppTheme.spacing_xl),
               _buildCircularButton(
                 icon: Icons.refresh,
                 onPressed: _resetTimer,
-                color: Colors.grey,
+                color: isDarkMode ? AppTheme.secondaryTextColor.withOpacity(0.8) : Colors.grey.shade600,
+                isDarkMode: isDarkMode,
               ),
-              const SizedBox(width: 24),
+              const SizedBox(width: AppTheme.spacing_xl),
               _buildCircularButton(
                 icon: _isEditing ? Icons.check : Icons.edit,
                 onPressed: () {
@@ -153,7 +167,8 @@ class _EditableRestTimerState extends State<EditableRestTimer> {
                     _isEditing = !_isEditing;
                   });
                 },
-                color: Colors.grey,
+                color: isDarkMode ? AppTheme.secondaryTextColor.withOpacity(0.8) : Colors.grey.shade600,
+                isDarkMode: isDarkMode,
               ),
             ],
           ),
@@ -166,18 +181,20 @@ class _EditableRestTimerState extends State<EditableRestTimer> {
     required IconData icon,
     required VoidCallback onPressed,
     required Color color,
+    required bool isDarkMode,
   }) {
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: color.withOpacity(0.1),
+        color: color.withOpacity(isDarkMode ? 0.25 : 0.15),
       ),
       child: IconButton(
-        icon: Icon(icon, color: color),
+        icon: Icon(icon, color: color), // Icon color matches base color
         onPressed: onPressed,
-        iconSize: 28,
-        padding: const EdgeInsets.all(12),
+        iconSize: AppTheme.iconSize_m, // Use AppTheme.iconSize_m
+        padding: const EdgeInsets.all(AppTheme.spacing_m), // Use AppTheme padding
+        splashRadius: AppTheme.iconSize_m + AppTheme.spacing_s, // Adjust splash radius
       ),
     );
   }
-} 
+}
