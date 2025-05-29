@@ -23,7 +23,7 @@ class AppRoutes {
       '/history': (context) => HistoryScreen(),
       '/add_exercise': (context) => CustomExerciseScreen(),
       '/settings': (context) => SettingsScreen(),
-      '/create_workout': (context) => const WorkoutEditorScreen(),
+      '/create_workout': (context) => WorkoutEditorScreen(),
       '/dashboard': (context) => const DashboardScreen(),
       '/profile': (context) => const ProfileScreen(),
       '/edit_workout': (context) {

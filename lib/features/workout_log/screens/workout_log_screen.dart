@@ -540,53 +540,106 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
             ],
           ),
         ),
-        floatingActionButton:
-            selectedExercises.isEmpty
-                ? FloatingActionButton(
-                  backgroundColor: Colors.green,
-                  child: const Icon(Icons.add, color: Colors.white),
-                  onPressed: () => _addExercise(context),
-                  heroTag: 'workoutLogFAB',
-                )
-                : null,
+        floatingActionButton: FloatingActionButton(
+          backgroundColor: Colors.green,
+          child: const Icon(Icons.add, color: Colors.white),
+          onPressed: () => _addExercise(context),
+          heroTag: 'workoutLogFAB',
+        ),
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(40),
+    // Updated 2025-05-29: Made the empty state tappable to add an exercise
+    return GestureDetector(
+      onTap: () => _addExercise(context),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(40),
+              ),
+              child: const Icon(
+                Icons.fitness_center,
+                size: 40,
+                color: Colors.green,
+              ),
             ),
-            child: const Icon(
-              Icons.fitness_center,
-              size: 40,
-              color: Colors.green,
+            const SizedBox(height: 24),
+            const Text(
+              'Start Your Workout',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Start Your Workout',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+            const SizedBox(height: 8),
+            Text(
+              'Add exercises to begin tracking your workout',
+              style: TextStyle(fontSize: 16, color: Colors.grey[400]),
+              textAlign: TextAlign.center,
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Add exercises to begin tracking your workout',
-            style: TextStyle(fontSize: 16, color: Colors.grey[400]),
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const SizedBox(height: 48), // Increased spacing
+            // Updated 2025-05-29: Added explicit buttons for clarity
+            ElevatedButton.icon(
+              icon: const Icon(
+                Icons.add_circle_outline_rounded,
+                color: Colors.white,
+              ),
+              label: const Text(
+                'Add New Exercise',
+                style: TextStyle(color: Colors.white),
+              ),
+              onPressed: () => _addExercise(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30.0),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.edit_note_rounded, color: Colors.green),
+              label: const Text(
+                'Create Custom Exercise',
+                style: TextStyle(color: Colors.green),
+              ),
+              onPressed: () {
+                Navigator.pushNamed(context, '/add_exercise');
+              },
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.green, width: 1.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30.0),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

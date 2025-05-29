@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../config/themes/app_theme.dart'; // Added 2025-05-29: Import AppTheme
 
 class ThemeSelector extends StatelessWidget {
   final bool isDarkMode;
@@ -15,9 +16,15 @@ class ThemeSelector extends StatelessWidget {
     return Column(
       children: [
         RadioListTile<bool>(
-          title: Text('Light Mode'),
+          // Updated 2025-05-29: Apply AppTheme styling
+          title: const Text(
+            'Light Mode',
+            style: TextStyle(color: AppTheme.primaryTextColor),
+          ),
           value: false,
           groupValue: isDarkMode,
+          activeColor:
+              AppTheme.accentTextColor, // Use accent color for selected radio
           onChanged: (value) {
             if (value != null) {
               onThemeChanged(value);
@@ -25,9 +32,15 @@ class ThemeSelector extends StatelessWidget {
           },
         ),
         RadioListTile<bool>(
-          title: Text('Dark Mode'),
+          // Updated 2025-05-29: Apply AppTheme styling
+          title: const Text(
+            'Dark Mode',
+            style: TextStyle(color: AppTheme.primaryTextColor),
+          ),
           value: true,
           groupValue: isDarkMode,
+          activeColor:
+              AppTheme.accentTextColor, // Use accent color for selected radio
           onChanged: (value) {
             if (value != null) {
               onThemeChanged(value);

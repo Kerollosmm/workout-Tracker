@@ -208,20 +208,15 @@ void main() async {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Consumer<SettingsProvider>(
-      builder: (context, settingsProvider, _) {
-        return MaterialApp(
-          navigatorKey: NotificationService.navigatorKey,
-          title: 'Workout Tracker Pro',
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode:
-              settingsProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-          routes: AppRoutes.routes,
-          debugShowCheckedModeBanner: false,
-          initialRoute: '/splash',
-        );
-      },
+    // Updated 2025-05-29: Always use dark theme
+    return MaterialApp(
+      navigatorKey: NotificationService.navigatorKey,
+      title: 'Workout Tracker Pro',
+      darkTheme: AppTheme.darkTheme, // Use darkTheme
+      themeMode: ThemeMode.dark,     // Force dark mode
+      routes: AppRoutes.routes,
+      debugShowCheckedModeBanner: false,
+      initialRoute: '/splash',
     );
   }
 }

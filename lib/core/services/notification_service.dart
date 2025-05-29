@@ -244,6 +244,7 @@ class NotificationService {
     required String title,
     required String body,
   }) async {
+    // Updated 2025-05-29: Use custom sound 'notification_sound_trimmed'
     final AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
           'workout_reminder_channel',
@@ -253,6 +254,8 @@ class NotificationService {
           priority: Priority.high,
           icon: '@mipmap/launcher_icon',
           largeIcon: DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
+          sound: const RawResourceAndroidNotificationSound('notification_sound_trimmed'), // Added custom sound for Android
+          playSound: true,
           styleInformation: BigTextStyleInformation(
             body,
             htmlFormatBigText: true,
@@ -272,28 +275,39 @@ class NotificationService {
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
-        sound: 'notification_sound.aiff',
+        sound: 'notification_sound_trimmed.aiff', // Updated custom sound for iOS
         interruptionLevel: InterruptionLevel.timeSensitive,
         categoryIdentifier: 'workout',
       ),
     );
 
-    await _notificationsPlugin.zonedSchedule(
-      id,
-      title,
-      body,
-      _nextInstanceOfDayTime(dayOfWeek, hour, minute),
-      notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      payload: 'dashboard',
-    );
+    // Updated 2025-05-29: Added logging for scheduling
+    final tz.TZDateTime scheduledTime = _nextInstanceOfDayTime(dayOfWeek, hour, minute);
+    debugPrint('[NotificationService] Attempting to schedule notification ID $id for $scheduledTime with title "$title"');
+
+    try {
+      await _notificationsPlugin.zonedSchedule(
+        id,
+        title,
+        body,
+        scheduledTime,
+        notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        payload: 'dashboard',
+      );
+      debugPrint('[NotificationService] Successfully scheduled notification ID $id for $scheduledTime');
+    } catch (e) {
+      debugPrint('[NotificationService] ERROR scheduling notification ID $id for $scheduledTime: $e');
+      rethrow; // Rethrow to allow calling code to handle if needed
+    }
   }
 
   // Calculate the next occurrence of a specific day and time
   tz.TZDateTime _nextInstanceOfDayTime(int dayOfWeek, int hour, int minute) {
+    // Updated 2025-05-29: Added detailed logging
     final now = tz.TZDateTime.now(tz.local);
     var scheduledDate = tz.TZDateTime(
       tz.local,
@@ -303,14 +317,18 @@ class NotificationService {
       hour,
       minute,
     );
+    debugPrint('[NotificationService] _nextInstanceOfDayTime: Now: $now, Initial scheduledDate for day $dayOfWeek ($hour:$minute): $scheduledDate');
 
     while (scheduledDate.weekday != dayOfWeek) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
+    debugPrint('[NotificationService] _nextInstanceOfDayTime: Adjusted scheduledDate for weekday match: $scheduledDate');
 
-    return scheduledDate.isBefore(now)
+    final finalScheduledDate = scheduledDate.isBefore(now)
         ? scheduledDate.add(const Duration(days: 7))
         : scheduledDate;
+    debugPrint('[NotificationService] _nextInstanceOfDayTime: Final scheduledDate for day $dayOfWeek, $hour:$minute is: $finalScheduledDate');
+    return finalScheduledDate;
   }
 
   // Cancel all notifications

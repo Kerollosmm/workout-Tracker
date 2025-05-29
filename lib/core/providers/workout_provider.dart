@@ -3,11 +3,16 @@ import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 import '../models/workout.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 // Added 2025-05-28: Imports for Excel export
 import 'dart:io';
 import 'package:excel/excel.dart' as excel_package;
+import 'dart:typed_data'; // Added 2025-05-30 for Uint8List
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart'; // Added 2025-05-29 for permissions
+import 'package:shared_preferences/shared_preferences.dart'; // Added 2025-05-29: For sequential file naming
 
 class WorkoutProvider with ChangeNotifier {
   Box<Workout>? _workoutsBox;
@@ -409,10 +414,26 @@ class WorkoutProvider with ChangeNotifier {
     );
   }
 
+  // Updated 2025-05-29: Changed filename generation to be sequential
   Future<String?> exportWorkoutDataToExcel() async {
     if (!_isInitialized || _cachedWorkouts.isEmpty) {
-      debugPrint('WorkoutProvider: No workouts to export or provider not initialized.');
+      debugPrint(
+        'WorkoutProvider: No workouts to export or provider not initialized.',
+      );
       return null;
+    }
+
+    // Added 2025-05-29: Check and request storage permissions
+    if (Platform.isAndroid) {
+      var status = await Permission.storage.status;
+      if (!status.isGranted) {
+        status = await Permission.storage.request();
+      }
+      if (!status.isGranted) {
+        debugPrint('WorkoutProvider: Storage permission denied for Excel export.');
+        // Optionally, communicate this back to the UI with a specific error/message
+        return null; // Or throw an exception that the UI can catch
+      }
     }
 
     try {
@@ -432,21 +453,31 @@ class WorkoutProvider with ChangeNotifier {
         'Set Notes',
         // 'Exercise Notes', // Removed
         'Workout Notes',
-        'Duration (seconds)'
+        'Duration (seconds)',
       ];
       for (var i = 0; i < headers.length; i++) {
         sheet
-            .cell(excel_package.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0))
+            .cell(
+              excel_package.CellIndex.indexByColumnRow(
+                columnIndex: i,
+                rowIndex: 0,
+              ),
+            )
             .value = excel_package.TextCellValue(headers[i]);
       }
 
       int rowIndex = 1;
       for (final workout in _cachedWorkouts) {
         for (final exercise in workout.exercises) {
-          if (exercise.sets.isEmpty) { // Log exercises with no sets too
+          if (exercise.sets.isEmpty) {
+            // Log exercises with no sets too
             final row = [
-              excel_package.TextCellValue(DateFormat('yyyy-MM-dd HH:mm').format(workout.date)),
-              excel_package.TextCellValue(workout.workoutName ?? ''), // Updated 2025-05-28
+              excel_package.TextCellValue(
+                DateFormat('yyyy-MM-dd HH:mm').format(workout.date),
+              ),
+              excel_package.TextCellValue(
+                workout.workoutName ?? '',
+              ), // Updated 2025-05-28
               excel_package.TextCellValue(exercise.exerciseName),
               excel_package.TextCellValue('-'), // Set Number
               excel_package.TextCellValue('-'), // Reps
@@ -455,11 +486,18 @@ class WorkoutProvider with ChangeNotifier {
               excel_package.TextCellValue('-'), // Set Notes
               // excel_package.TextCellValue(exercise.notes ?? ''), // Removed 2025-05-28
               excel_package.TextCellValue(workout.notes ?? ''),
-              excel_package.IntCellValue(workout.duration) // Updated 2025-05-28
+              excel_package.IntCellValue(
+                workout.duration,
+              ), // Updated 2025-05-28
             ];
             for (var i = 0; i < row.length; i++) {
               sheet
-                  .cell(excel_package.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: rowIndex))
+                  .cell(
+                    excel_package.CellIndex.indexByColumnRow(
+                      columnIndex: i,
+                      rowIndex: rowIndex,
+                    ),
+                  )
                   .value = row[i];
             }
             rowIndex++;
@@ -467,21 +505,34 @@ class WorkoutProvider with ChangeNotifier {
             for (var i = 0; i < exercise.sets.length; i++) {
               final set = exercise.sets[i];
               final row = [
-                excel_package.TextCellValue(DateFormat('yyyy-MM-dd HH:mm').format(workout.date)),
-                excel_package.TextCellValue(workout.workoutName ?? ''), // Updated 2025-05-28
+                excel_package.TextCellValue(
+                  DateFormat('yyyy-MM-dd HH:mm').format(workout.date),
+                ),
+                excel_package.TextCellValue(
+                  workout.workoutName ?? '',
+                ), // Updated 2025-05-28
                 excel_package.TextCellValue(exercise.exerciseName),
                 excel_package.IntCellValue(i + 1), // Set Number
                 excel_package.IntCellValue(set.reps),
                 excel_package.DoubleCellValue(set.weight),
-                excel_package.TextCellValue(set.isHardSet.toString()), // Updated 2025-05-28
+                excel_package.TextCellValue(
+                  set.isHardSet.toString(),
+                ), // Updated 2025-05-28
                 excel_package.TextCellValue(set.notes ?? ''),
                 // excel_package.TextCellValue(exercise.notes ?? ''), // Removed 2025-05-28
                 excel_package.TextCellValue(workout.notes ?? ''),
-                excel_package.IntCellValue(workout.duration) // Updated 2025-05-28
+                excel_package.IntCellValue(
+                  workout.duration,
+                ), // Updated 2025-05-28
               ];
               for (var j = 0; j < row.length; j++) {
                 sheet
-                    .cell(excel_package.CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex))
+                    .cell(
+                      excel_package.CellIndex.indexByColumnRow(
+                        columnIndex: j,
+                        rowIndex: rowIndex,
+                      ),
+                    )
                     .value = row[j];
               }
               rowIndex++;
@@ -491,27 +542,36 @@ class WorkoutProvider with ChangeNotifier {
       }
 
       // Get a file path from the user
-      final String? outputFile = await FilePicker.platform.saveFile(
-        dialogTitle: 'Please select an output file:',
-        fileName: 'workout_data_${DateFormat('yyyy-MM-dd').format(DateTime.now())}.xlsx',
-        allowedExtensions: ['xlsx'],
-        type: FileType.custom,
-      );
+      // Updated 2025-05-29: Implement sequential file naming
+      final prefs = await SharedPreferences.getInstance();
+      int exportCounter = prefs.getInt('excel_export_counter') ?? 0;
+      exportCounter++; // Increment for the new file
 
-      if (outputFile == null) {
-        // User canceled the picker
-        debugPrint('WorkoutProvider: User cancelled Excel export.');
-        return null;
+      final String suggestedFileName = 'workout_tracker_pro_$exportCounter.xlsx'; // Updated 2025-05-29: More specific name
+
+      // Updated 2025-05-30: Encode Excel to bytes before picking file
+      final List<int>? fileBytes = excel.encode();
+      if (fileBytes == null) {
+        debugPrint('WorkoutProvider: Failed to encode Excel data to bytes.');
+        return null; // Or throw an appropriate exception
       }
 
-      final fileBytes = excel.save();
-      if (fileBytes != null) {
-        final file = File(outputFile);
-        await file.writeAsBytes(fileBytes);
-        debugPrint('WorkoutProvider: Workout data exported to $outputFile');
-        return outputFile;
+      final String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: 'Please select an output file:',
+        fileName: suggestedFileName,
+        allowedExtensions: ['xlsx'], // Good for UX, might not be strictly needed with bytes
+        type: FileType.custom,      // Good for UX, might not be strictly needed with bytes
+        bytes: fileBytes != null ? Uint8List.fromList(fileBytes) : null, // Provide the Excel data as bytes
+      );
+
+      if (outputFile != null) {
+        // Save the new counter only if file was saved successfully
+        await prefs.setInt('excel_export_counter', exportCounter);
+        debugPrint('WorkoutProvider: Excel data exported to $outputFile');
+        return outputFile; // Path to the saved file
       } else {
-        debugPrint('WorkoutProvider: Failed to save Excel file (fileBytes is null).');
+        // User cancelled the picker or an error occurred during saving
+        debugPrint('WorkoutProvider: Excel export cancelled by user or file saving failed.');
         return null;
       }
     } catch (e) {

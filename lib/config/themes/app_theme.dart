@@ -128,18 +128,5 @@ class AppTheme {
       ),
     );
   }
-
-  // Light theme (optional, keeping for flexibility)
-  static ThemeData get lightTheme {
-    return ThemeData.light().copyWith(
-      primaryColor: primaryColor,
-      scaffoldBackgroundColor: Colors.white,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        centerTitle: false,
-      ),
-    );
-  }
+  // Updated 2025-05-29: lightTheme getter removed as app is dark-theme only.
 }

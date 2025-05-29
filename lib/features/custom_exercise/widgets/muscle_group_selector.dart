@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../config/themes/app_theme.dart'; // Added for UI Enhancements
 
 class MuscleGroupSelector extends StatelessWidget {
   final List<String> muscleGroups;
@@ -14,45 +15,57 @@ class MuscleGroupSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 220,
-      child: GridView.builder(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 2.5,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-        ),
-        itemCount: muscleGroups.length,
-        physics: NeverScrollableScrollPhysics(),
-        itemBuilder: (context, index) {
-          final muscleGroup = muscleGroups[index];
-          final isSelected = selectedMuscleGroup == muscleGroup;
-          
-          return GestureDetector(
-            onTap: () => onMuscleGroupSelected(muscleGroup),
-            child: Container(
-              decoration: BoxDecoration(
-                color: isSelected 
-                  ? Theme.of(context).primaryColor 
-                  : Colors.grey[200],
-                borderRadius: BorderRadius.circular(8),
-                border: isSelected 
-                  ? Border.all(color: Theme.of(context).primaryColor, width: 2)
-                  : null,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                muscleGroup,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.black,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+    // Updated 2025-05-29: UI Enhancements to use Wrap and chip-style buttons
+    if (muscleGroups.isEmpty) {
+      return const SizedBox.shrink(); // Return empty if no muscle groups
+    }
+
+    return Wrap(
+      spacing: AppTheme.spacing_s, // Horizontal spacing between chips
+      runSpacing: AppTheme.spacing_m, // Vertical spacing between lines of chips
+      children:
+          muscleGroups.map((muscleGroup) {
+            final isSelected = selectedMuscleGroup == muscleGroup;
+            return GestureDetector(
+              onTap: () => onMuscleGroupSelected(muscleGroup),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal:
+                      AppTheme
+                          .spacing_l, // Generous horizontal padding for pill shape
+                  vertical: AppTheme.spacing_m, // Vertical padding
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      isSelected
+                          ? AppTheme.accentTextColor
+                          : AppTheme.cardColor,
+                  borderRadius: BorderRadius.circular(
+                    AppTheme.spacing_xl,
+                  ), // Pill shape
+                  border: Border.all(
+                    color:
+                        isSelected
+                            ? AppTheme.accentTextColor
+                            : AppTheme.surfaceColor.withOpacity(0.5),
+                    width: 1.5,
+                  ),
+                ),
+                child: Text(
+                  muscleGroup,
+                  style: TextStyle(
+                    color:
+                        isSelected
+                            ? AppTheme.primaryColor
+                            : AppTheme
+                                .primaryTextColor, // Black text on green, white on dark grey
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    fontSize: 14, // Slightly smaller font for chips
+                  ),
                 ),
               ),
-            ),
-          );
-        },
-      ),
+            );
+          }).toList(),
     );
   }
 }

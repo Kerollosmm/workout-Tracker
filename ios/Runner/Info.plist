@@ -45,5 +45,10 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to your photo library to allow you to select a profile picture and attach images to your workouts.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs access to your camera to allow you to take a new profile picture and capture images for your workouts.</string>
+	<!-- Added 2025-05-29: Permissions for photo library and camera -->
 </dict>
 </plist>

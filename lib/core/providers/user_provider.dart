@@ -8,6 +8,7 @@ import 'package:excel/excel.dart' as excel_package;
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
 // removed share_plus import as it's now used in profile_screen.dart
+import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import '../models/user.dart';
 import '../providers/workout_provider.dart';
@@ -66,6 +67,50 @@ class UserProvider with ChangeNotifier {
   Future<bool> isUserSignedIn() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('user_signed_in') ?? false;
+  }
+
+  // Added 2025-05-29: Method to simulate user sign-in
+  Future<void> signInUser(String name, String email) async {
+    _user = _user.copyWith(name: name, email: email, id: Uuid().v4()); // Ensure a unique ID
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_id', _user.id);
+    await prefs.setString('user_name', _user.name);
+    await prefs.setString('user_email', _user.email);
+    // Initialize other fields to default or empty if not provided at sign-in
+    await prefs.setDouble('user_height', _user.height);
+    await prefs.setDouble('user_weight', _user.weight);
+    await prefs.setString('user_fitness_goal', _user.fitnessGoal);
+    await prefs.setString('user_activity_level', _user.activityLevel);
+    await prefs.setString('user_photo_url', ''); // Clear photo on new sign-in
+    await prefs.setBool('user_signed_in', true);
+    notifyListeners();
+  }
+
+  // Added 2025-05-29: Method to log out user
+  Future<void> logoutUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user_id');
+    await prefs.remove('user_name');
+    await prefs.remove('user_email');
+    await prefs.remove('user_photo_url');
+    await prefs.remove('user_height');
+    await prefs.remove('user_weight');
+    await prefs.remove('user_fitness_goal');
+    await prefs.remove('user_activity_level');
+    await prefs.setBool('user_signed_in', false);
+
+    // Reset user object to default state
+    _user = User(
+      id: '', // Clear ID
+      name: 'User',
+      email: 'user@example.com',
+      photoUrl: '',
+      height: 175,
+      weight: 70,
+      fitnessGoal: 'Build Muscle',
+      activityLevel: 'Moderate',
+    );
+    notifyListeners();
   }
 
   Future<void> updateUserName(String name) async {

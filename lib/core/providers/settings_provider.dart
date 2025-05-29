@@ -32,7 +32,7 @@ class SettingsProvider with ChangeNotifier {
         _settings = UserSettings(
           language: 'en',
           weightUnit: 'kg',
-          isDarkMode: false,
+          isDarkMode: true, // Updated 2025-05-29: Default to dark mode
           notificationDays: [],
           notificationTime: '08:00',
         );
@@ -58,7 +58,7 @@ class SettingsProvider with ChangeNotifier {
           _settings = UserSettings(
             language: 'en',
             weightUnit: 'kg',
-            isDarkMode: false,
+            isDarkMode: true, // Updated 2025-05-29: Default to dark mode
             notificationDays: [],
             notificationTime: '08:00',
           );
@@ -77,7 +77,8 @@ class SettingsProvider with ChangeNotifier {
   // Getters with null safety
   String get language => _settings?.language ?? 'en';
   String get weightUnit => _settings?.weightUnit ?? 'kg';
-  bool get isDarkMode => _settings?.isDarkMode ?? false;
+  // Updated 2025-05-29: Force dark mode
+  bool get isDarkMode => true;
   List<String> get notificationDays => _settings?.notificationDays ?? [];
   String? get notificationTime => _settings?.notificationTime;
 
@@ -94,7 +95,8 @@ class SettingsProvider with ChangeNotifier {
     // Update local settings
     if (language != null) _settings!.language = language;
     if (weightUnit != null) _settings!.weightUnit = weightUnit;
-    if (isDarkMode != null) _settings!.isDarkMode = isDarkMode;
+    // Updated 2025-05-29: Force dark mode, ignore incoming value for isDarkMode
+    _settings!.isDarkMode = true;
     if (notificationDays != null)
       _settings!.notificationDays = notificationDays;
     if (notificationTime != null)
@@ -122,9 +124,10 @@ class SettingsProvider with ChangeNotifier {
     await updateSettings(weightUnit: unit);
   }
 
+  // Updated 2025-05-29: Force dark mode. This method might be redundant now.
   Future<void> setDarkMode(bool isDarkMode) async {
     if (_settings != null) {
-      _settings!.isDarkMode = isDarkMode;
+      _settings!.isDarkMode = true; // Always set to true
       await _updateSettings();
     }
   }

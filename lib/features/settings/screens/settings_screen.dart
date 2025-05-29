@@ -5,7 +5,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../config/themes/app_theme.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/notification_service.dart';
-import '../widgets/theme_selector.dart';
 import '../widgets/units_selector.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -13,19 +12,36 @@ class SettingsScreen extends StatelessWidget {
     return await showDialog<bool>(
           context: context,
           builder: (BuildContext context) {
+            // Updated 2025-05-29: Themed AlertDialog
             return AlertDialog(
-              title: const Text('Reset All Data'),
-              content: const Text(
+              backgroundColor: AppTheme.surfaceColor,
+              title: Text(
+                'Reset All Data',
+                style: TextStyle(color: AppTheme.primaryTextColor),
+              ),
+              content: Text(
                 'This will delete all your workouts, exercises, and reset all settings. This action cannot be undone. Are you sure you want to continue?',
+                style: TextStyle(color: AppTheme.secondaryTextColor),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
               ),
               actions: [
                 TextButton(
-                  child: const Text('Cancel'),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(color: AppTheme.accentTextColor),
+                  ),
                   onPressed: () => Navigator.of(context).pop(false),
                 ),
                 TextButton(
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
-                  child: const Text('Reset'),
+                  child: Text(
+                    'Reset',
+                    style: TextStyle(
+                      color: AppTheme.errorColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   onPressed: () => Navigator.of(context).pop(true),
                 ),
               ],
@@ -39,23 +55,29 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final settingsProvider = Provider.of<SettingsProvider>(context);
 
+    // Updated 2025-05-29: Apply AppTheme to Scaffold and AppBar
     return SafeArea(
       child: Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
-          title: const Text('Settings'),
-          backgroundColor: Colors.transparent,
+          title: const Text(
+            'Settings',
+            style: TextStyle(color: AppTheme.primaryTextColor),
+          ),
+          backgroundColor: AppTheme.backgroundColor,
           elevation: 0,
           centerTitle: true,
+          iconTheme: const IconThemeData(color: AppTheme.primaryTextColor),
         ),
         body: ListView(
-          padding: const EdgeInsets.symmetric(
-            vertical: AppTheme.spacing_s,
-            horizontal: AppTheme.spacing_xs,
-          ),
+          padding: const EdgeInsets.all(
+            AppTheme.spacing_m,
+          ), // Use consistent padding
           children: [
+            // Updated 2025-05-29: Add ThemeSelector section
             _buildSettingsSection(
               context,
-              title: 'Weight Unit',
+              title: 'Units', // Renamed title as ThemeSelector is removed
               child: UnitsSelector(
                 selectedUnit: settingsProvider.weightUnit,
                 onUnitChanged: (unit) {
@@ -63,7 +85,6 @@ class SettingsScreen extends StatelessWidget {
                 },
               ),
             ),
-
             _buildSettingsSection(
               context,
               title: 'Workout Reminders',
@@ -73,9 +94,26 @@ class SettingsScreen extends StatelessWidget {
               context,
               title: 'Data Management',
               child: ListTile(
-                title: const Text('Reset All Data'),
-                subtitle: const Text('Delete all workouts and settings'),
-
+                // Updated 2025-05-29: Added icon and themed text for destructive action
+                leading: const Icon(
+                  Icons.delete_sweep_outlined,
+                  color: AppTheme.errorColor,
+                  size: 28,
+                ),
+                title: const Text(
+                  'Reset All Data',
+                  style: TextStyle(color: AppTheme.primaryTextColor),
+                ),
+                subtitle: Text(
+                  'Delete all workouts, history, and settings.',
+                  style: TextStyle(color: AppTheme.secondaryTextColor),
+                ),
+                tileColor:
+                    AppTheme
+                        .surfaceColor, // Ensure ListTile background matches card
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.borderRadius_s),
+                ),
                 onTap: () async {
                   final confirmed = await _showResetConfirmationDialog(context);
                   if (confirmed && context.mounted) {
@@ -83,8 +121,10 @@ class SettingsScreen extends StatelessWidget {
                       await settingsProvider.resetAllData();
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('All data has been reset'),
+                          SnackBar(
+                            content: const Text('All data has been reset'),
+                            // Updated 2025-05-29: Replaced AppTheme.successColor with AppTheme.accentTextColor
+                            backgroundColor: AppTheme.accentTextColor,
                           ),
                         );
                         Navigator.pushNamedAndRemoveUntil(
@@ -96,7 +136,10 @@ class SettingsScreen extends StatelessWidget {
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error resetting data: $e')),
+                          SnackBar(
+                            content: Text('Error resetting data: $e'),
+                            backgroundColor: AppTheme.errorColor,
+                          ),
                         );
                       }
                     }
@@ -104,8 +147,15 @@ class SettingsScreen extends StatelessWidget {
                 },
               ),
             ),
-
-            const SizedBox(height: AppTheme.spacing_s),
+            // Updated 2025-05-29: Add Developer Info section
+            _buildSettingsSection(
+              context,
+              title: 'About',
+              child: _buildDeveloperInfo(context),
+            ),
+            const SizedBox(
+              height: AppTheme.spacing_l,
+            ), // Add some bottom spacing
           ],
         ),
       ),
@@ -117,40 +167,38 @@ class SettingsScreen extends StatelessWidget {
     required String title,
     required Widget child,
   }) {
-    return Card(
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacing_m,
-        vertical: AppTheme.spacing_s,
-      ),
-      elevation: 1.5,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
-      ),
+    // Updated 2025-05-29: Restored correct settings section structure and themed elements
+    return Padding(
+      padding: const EdgeInsets.only(
+        bottom: AppTheme.spacing_m,
+      ), // Outer padding for the section
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.only(
-              left: AppTheme.spacing_m,
-              top: AppTheme.spacing_m,
-              right: AppTheme.spacing_m,
-              bottom: AppTheme.spacing_xs,
+              left: AppTheme.spacing_xs,
+              bottom: AppTheme.spacing_s,
             ),
             child: Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: AppTheme.primaryTextColor,
+                fontWeight: FontWeight.w600, // Emphasize title
               ),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.only(
-              left: AppTheme.spacing_xs,
-              right: AppTheme.spacing_xs,
-              bottom: AppTheme.spacing_s,
+          Material(
+            elevation: 1.0, // Subtle elevation for card effect
+            shadowColor: Colors.black.withOpacity(0.05), // Defined shadow
+            color: AppTheme.surfaceColor, // Card background color from theme
+            borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
+            child: Padding(
+              padding: const EdgeInsets.all(
+                AppTheme.spacing_s,
+              ), // Inner padding for the card content
+              child: child,
             ),
-            child: child,
           ),
         ],
       ),
@@ -319,11 +367,37 @@ class SettingsScreen extends StatelessWidget {
 
     return Column(
       children: [
-        const ListTile(title: Text('Name'), subtitle: Text('Kerollos Melad')),
+        // Updated 2025-05-29: Apply AppTheme styling and add icon
         ListTile(
-          title: const Text('GitHub'),
-          subtitle: const Text(githubUrl),
-
+          leading: Icon(
+            Icons.person_outline,
+            color: AppTheme.primaryTextColor.withOpacity(0.7),
+            size: 28,
+          ),
+          title: const Text(
+            'Name',
+            style: TextStyle(color: AppTheme.primaryTextColor),
+          ),
+          subtitle: const Text(
+            'Kerollos Melad',
+            style: TextStyle(color: AppTheme.secondaryTextColor),
+          ),
+        ),
+        // Updated 2025-05-29: Apply AppTheme styling and add icon
+        ListTile(
+          leading: Icon(
+            Icons.code_rounded,
+            color: AppTheme.primaryTextColor.withOpacity(0.7),
+            size: 28,
+          ), // Placeholder for GitHub icon
+          title: const Text(
+            'GitHub',
+            style: TextStyle(color: AppTheme.primaryTextColor),
+          ),
+          subtitle: Text(
+            githubUrl,
+            style: TextStyle(color: AppTheme.accentTextColor.withOpacity(0.8)),
+          ), // Make URL stand out
           onTap: () async {
             final uri = Uri.parse(githubUrl);
             if (await canLaunchUrl(uri)) {
@@ -335,10 +409,21 @@ class SettingsScreen extends StatelessWidget {
             }
           },
         ),
+        // Updated 2025-05-29: Apply AppTheme styling and add icon
         ListTile(
-          title: const Text('Phone'),
-          subtitle: const Text(phoneNumber),
-
+          leading: Icon(
+            Icons.phone_outlined,
+            color: AppTheme.primaryTextColor.withOpacity(0.7),
+            size: 28,
+          ),
+          title: const Text(
+            'Phone',
+            style: TextStyle(color: AppTheme.primaryTextColor),
+          ),
+          subtitle: Text(
+            phoneNumber,
+            style: TextStyle(color: AppTheme.secondaryTextColor),
+          ),
           onTap: () async {
             final uri = Uri.parse('tel:$phoneNumber');
             if (await canLaunchUrl(uri)) {

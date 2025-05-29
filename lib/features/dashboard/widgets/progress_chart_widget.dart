@@ -52,11 +52,12 @@ class _ProgressChartWidgetState extends State<ProgressChartWidget> {
   ) {
     const ringRadius = 20.0;
     const ringWidth = 4.0;
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    // Updated 2025-05-29: Simplified for dark theme only
     final dayTextColor =
         isToday
-            ? AppTheme.primaryColor
-            : (isDarkMode ? Colors.white70 : Colors.black54);
+            ? AppTheme
+                .accentTextColor // Use accent for 'today' to make it pop
+            : AppTheme.secondaryTextColor;
 
     final Color moveColorDaily = Colors.pinkAccent.shade100;
     final Color exerciseColorDaily = Colors.lightGreenAccent.shade200;
@@ -266,16 +267,7 @@ class _ProgressChartWidgetState extends State<ProgressChartWidget> {
             ),
             radius: ringRadius,
             width: ringWidth,
-            child: Center(
-              child: Text(
-                '${(activityData['moveCurrent'] ?? 0.0).toInt()}/${(activityData['moveGoal'] ?? 1.0).toInt()}\nMOVE',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: ringWidth * 0.3,
-                  color: moveColor.withAlpha(200),
-                ),
-              ),
-            ),
+            // Updated 2025-05-29: Removed child text, will be added in a central Column
           ),
           Ring(
             percent: exercisePercent * 100,
@@ -285,16 +277,7 @@ class _ProgressChartWidgetState extends State<ProgressChartWidget> {
             ),
             radius: ringRadius - ringWidth - (ringWidth * 0.1),
             width: ringWidth,
-            child: Center(
-              child: Text(
-                '${(activityData['exerciseCurrent'] ?? 0.0).toInt()}/${(activityData['exerciseGoal'] ?? 1.0).toInt()}\nEXERCISE',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: ringWidth * 0.3,
-                  color: exerciseColor.withAlpha(200),
-                ),
-              ),
-            ),
+            // Updated 2025-05-29: Removed child text, will be added in a central Column
           ),
           Ring(
             percent: standPercent * 100,
@@ -304,16 +287,62 @@ class _ProgressChartWidgetState extends State<ProgressChartWidget> {
             ),
             radius: ringRadius - (ringWidth * 2) - (ringWidth * 0.2),
             width: ringWidth,
-            child: Center(
-              child: Text(
-                '${(activityData['standCurrent'] ?? 0.0).toInt()}/${(activityData['standGoal'] ?? 1.0).toInt()}\nSTAND',
-                textAlign: TextAlign.center,
+          ),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                '${(activityData['moveCurrent'] ?? 0.0).toInt()}/${(activityData['moveGoal'] ?? 1.0).toInt()}',
                 style: TextStyle(
-                  fontSize: ringWidth * 0.3,
-                  color: standColor.withAlpha(200),
+                  fontSize: ringWidth * 0.35, // Slightly larger for value
+                  color: moveColor, // Use the ring's main color
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
+              Text(
+                'MOVE',
+                style: TextStyle(
+                  fontSize: ringWidth * 0.25, // Slightly smaller for label
+                  color: moveColor.withAlpha(200),
+                  letterSpacing: 1.2,
+                ),
+              ),
+              SizedBox(height: ringWidth * 0.1), // Spacing
+              Text(
+                '${(activityData['exerciseCurrent'] ?? 0.0).toInt()}/${(activityData['exerciseGoal'] ?? 1.0).toInt()}',
+                style: TextStyle(
+                  fontSize: ringWidth * 0.35,
+                  color: exerciseColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                'EXERCISE',
+                style: TextStyle(
+                  fontSize: ringWidth * 0.25,
+                  color: exerciseColor.withAlpha(200),
+                  letterSpacing: 1.2,
+                ),
+              ),
+              SizedBox(height: ringWidth * 0.1), // Spacing
+              Text(
+                '${(activityData['standCurrent'] ?? 0.0).toInt()}/${(activityData['standGoal'] ?? 1.0).toInt()}',
+                style: TextStyle(
+                  fontSize: ringWidth * 0.35,
+                  color: standColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                'STAND',
+                style: TextStyle(
+                  fontSize: ringWidth * 0.25,
+                  color: standColor.withAlpha(200),
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -324,10 +353,9 @@ class _ProgressChartWidgetState extends State<ProgressChartWidget> {
   Widget build(BuildContext context) {
     final dashboardProvider = Provider.of<DashboardProvider>(context);
 
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final cardBackgroundColor =
-        isDarkMode ? const Color(0xFF1E1E1E) : Colors.grey.shade50;
-    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    // Updated 2025-05-29: Simplified for dark theme only
+    final cardBackgroundColor = AppTheme.cardColor; // Use from AppTheme
+    final textColor = AppTheme.primaryTextColor; // Use from AppTheme
 
     return Card(
       elevation: 2.0,

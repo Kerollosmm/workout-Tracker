@@ -39,6 +39,12 @@ class CustomExerciseProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // Added 2025-05-29: To directly set favorite status from UI controls like SwitchListTile
+  void setIsFavorite(bool value) {
+    _isFavorite = value;
+    notifyListeners();
+  }
+
   void setNotes(String? notes) {
     _notes = notes;
     notifyListeners();
