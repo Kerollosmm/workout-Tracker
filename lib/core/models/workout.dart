@@ -111,6 +111,18 @@ class Workout extends HiveObject {
 
   @override
   int get hashCode => Object.hash(id, date, workoutName);
+
+  // Added 2025-05-30: For serialization
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'date': date.toIso8601String(),
+      'exercises': exercises.map((exercise) => exercise.toMap()).toList(),
+      'duration': duration,
+      'notes': notes,
+      'workoutName': workoutName,
+    };
+  }
 }
 
 @HiveType(typeId: 3)
@@ -166,4 +178,26 @@ class WorkoutExercise {
 
   @override
   int get hashCode => Object.hash(exerciseId, exerciseName, muscleGroup);
+
+  // Added 2025-05-30: Factory constructor for an empty/default instance
+  factory WorkoutExercise.empty() {
+    return WorkoutExercise(
+      exerciseId: '',
+      exerciseName: 'Unknown Exercise',
+      muscleGroup: 'Unknown',
+      sets: [],
+      restTimeInSeconds: 60, // Default rest time
+    );
+  }
+
+  // Added 2025-05-30: For serialization
+  Map<String, dynamic> toMap() {
+    return {
+      'exerciseId': exerciseId,
+      'exerciseName': exerciseName,
+      'muscleGroup': muscleGroup,
+      'sets': sets.map((set) => set.toMap()).toList(),
+      'restTimeInSeconds': restTimeInSeconds,
+    };
+  }
 }

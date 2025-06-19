@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../config/themes/app_theme.dart';
+import '../../../config/themes/app_theme.dart'; // Import AppTheme
 
 class EditableRestTimer extends StatefulWidget {
   final int initialSeconds;
@@ -28,6 +28,7 @@ class _EditableRestTimerState extends State<EditableRestTimer> {
   void initState() {
     super.initState();
     _currentSeconds = widget.initialSeconds;
+    // Initialize with minutes:seconds if needed, or just minutes for editing
     _timeController.text = (_currentSeconds ~/ 60).toString();
   }
 
@@ -39,6 +40,7 @@ class _EditableRestTimerState extends State<EditableRestTimer> {
   }
 
   void _startTimer() {
+    if (_currentSeconds <= 0) return; // Don't start if time is zero
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_currentSeconds > 0) {
         setState(() {
@@ -51,6 +53,7 @@ class _EditableRestTimerState extends State<EditableRestTimer> {
     });
     setState(() {
       _isRunning = true;
+      _isEditing = false; // Exit editing mode when timer starts
     });
   }
 
@@ -64,43 +67,52 @@ class _EditableRestTimerState extends State<EditableRestTimer> {
   void _resetTimer() {
     _stopTimer();
     setState(() {
+      // Reset to the original initialSeconds passed to the widget,
+      // or to the last successfully set time if it was edited.
+      // For now, let's assume widget.initialSeconds is the true reset point,
+      // or manage an internal 'configuredSeconds' state.
       _currentSeconds = widget.initialSeconds;
+      _timeController.text = (_currentSeconds ~/ 60).toString();
+      _isEditing = false; // Exit editing mode
     });
   }
 
   void _onTimerComplete() {
-    HapticFeedback.heavyImpact(); // Vibrate when timer completes
+    HapticFeedback.heavyImpact();
+    // Optionally, reset or perform other actions
   }
 
   String _formatTime(int seconds) {
     final minutes = seconds ~/ 60;
     final remainingSeconds = seconds % 60;
-    return '${minutes.toString()}:${remainingSeconds.toString().padLeft(2, '0')}';
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
-  void _updateTime(String value) {
-    final minutes = int.tryParse(value) ?? 0;
+  void _saveEditedTime() {
+    final minutes = int.tryParse(_timeController.text) ?? (_currentSeconds ~/ 60);
     final newSeconds = minutes * 60;
-    setState(() {
-      _currentSeconds = newSeconds;
-    });
-    widget.onTimeChanged?.call(newSeconds);
+    if (newSeconds >= 0) { // Ensure non-negative time
+      setState(() {
+        _currentSeconds = newSeconds;
+        _isEditing = false;
+        if (_isRunning) { // If timer was running, stop it and restart with new time
+          _stopTimer();
+          // Optionally auto-start: _startTimer();
+        }
+      });
+      widget.onTimeChanged?.call(newSeconds);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final Color currentTextColor = isDarkMode ? AppTheme.primaryTextColor : Colors.black87;
-    final Color currentSecondaryTextColor = isDarkMode ? AppTheme.secondaryTextColor : Colors.black54;
-    final Color currentBorderColor = isDarkMode ? AppTheme.primaryTextColor.withOpacity(0.2) : Colors.grey.shade400;
-    final Color currentCardBgColor = isDarkMode ? AppTheme.cardColor : Colors.white;
-
+    // Using AppTheme constants directly
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: AppTheme.spacing_s),
-      padding: const EdgeInsets.all(AppTheme.spacing_l),
+      margin: const EdgeInsets.symmetric(vertical: AppTheme.spacing_xs), // Reduced vertical margin
+      padding: const EdgeInsets.all(AppTheme.spacing_m),
       decoration: BoxDecoration(
-        color: currentCardBgColor,
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius_l),
+        color: AppTheme.surfaceColor, // Use surfaceColor to stand out slightly if nested in cardColor
+        borderRadius: BorderRadius.circular(AppTheme.borderRadius_m), // Consistent border radius
       ),
       child: Column(
         children: [
@@ -108,67 +120,82 @@ class _EditableRestTimerState extends State<EditableRestTimer> {
             Text(
               _formatTime(_currentSeconds),
               style: TextStyle(
-                color: currentTextColor,
-                fontSize: 56,
-                fontWeight: FontWeight.w300,
-                letterSpacing: 2,
+                color: AppTheme.primaryTextColor,
+                fontSize: 48, // Large, prominent timer text
+                fontWeight: FontWeight.w300, // Light weight for modern feel
+                fontFeatures: [FontFeature.tabularFigures()], // Ensures numbers align well
               ),
             )
           else
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_xl),
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_m),
               child: TextField(
                 controller: _timeController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                autofocus: true,
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: currentTextColor,
-                  fontSize: 32,
+                  color: AppTheme.primaryTextColor,
+                  fontSize: AppTheme.darkTheme.textTheme.headlineMedium?.fontSize ?? 24, // Slightly smaller for editing
                 ),
                 decoration: InputDecoration(
-                  labelText: 'Minutes',
-                  labelStyle: TextStyle(color: currentSecondaryTextColor),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: currentBorderColor),
+                  labelText: 'Set Minutes',
+                  labelStyle: TextStyle(color: AppTheme.secondaryTextColor, fontSize: AppTheme.darkTheme.textTheme.bodySmall?.fontSize),
+                  // Using filled style from AppTheme's inputDecorationTheme implicitly
+                  filled: true,
+                  fillColor: AppTheme.cardColor, // Darker background for input field
+                  contentPadding: EdgeInsets.symmetric(vertical: AppTheme.spacing_s, horizontal: AppTheme.spacing_m),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.borderRadius_s),
+                    borderSide: BorderSide.none,
                   ),
-                  focusedBorder: UnderlineInputBorder(
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.borderRadius_s),
                     borderSide: BorderSide(color: AppTheme.exerciseRingColor, width: 1.5),
                   ),
-                  contentPadding: EdgeInsets.symmetric(vertical: AppTheme.spacing_s),
                 ),
-                textAlign: TextAlign.center,
               ),
             ),
-          const SizedBox(height: AppTheme.spacing_xl),
+          const SizedBox(height: AppTheme.spacing_m), // Consistent spacing
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly, // Distribute buttons evenly
             children: [
               _buildCircularButton(
-                icon: _isRunning ? Icons.pause : Icons.play_arrow,
-                onPressed: _isRunning ? _stopTimer : _startTimer,
+                context: context,
+                icon: _isEditing ? Icons.save_alt_outlined : (_isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                onPressed: () {
+                  if (_isEditing) {
+                    _saveEditedTime();
+                  } else {
+                    _isRunning ? _stopTimer() : _startTimer();
+                  }
+                },
+                // Use accent color for primary action (play/pause/save)
                 color: AppTheme.exerciseRingColor,
-                isDarkMode: isDarkMode,
               ),
-              const SizedBox(width: AppTheme.spacing_xl),
+              if (!_isEditing) // Show Reset and Edit only when not editing
+                _buildCircularButton(
+                  context: context,
+                  icon: Icons.replay_rounded,
+                  onPressed: _resetTimer,
+                  color: AppTheme.secondaryTextColor.withOpacity(0.8),
+                ),
               _buildCircularButton(
-                icon: Icons.refresh,
-                onPressed: _resetTimer,
-                color: isDarkMode ? AppTheme.secondaryTextColor.withOpacity(0.8) : Colors.grey.shade600,
-                isDarkMode: isDarkMode,
-              ),
-              const SizedBox(width: AppTheme.spacing_xl),
-              _buildCircularButton(
-                icon: _isEditing ? Icons.check : Icons.edit,
+                context: context,
+                icon: _isEditing ? Icons.cancel_outlined : Icons.edit_rounded,
                 onPressed: () {
                   setState(() {
-                    if (_isEditing) {
-                      _updateTime(_timeController.text);
+                    if (_isEditing) { // Cancel editing
+                      _timeController.text = (_currentSeconds ~/ 60).toString(); // Reset controller text
+                      _isEditing = false;
+                    } else { // Start editing
+                      _isEditing = true;
+                      if(_isRunning) _stopTimer(); // Stop timer if running when editing starts
                     }
-                    _isEditing = !_isEditing;
                   });
                 },
-                color: isDarkMode ? AppTheme.secondaryTextColor.withOpacity(0.8) : Colors.grey.shade600,
-                isDarkMode: isDarkMode,
+                color: AppTheme.secondaryTextColor.withOpacity(0.8),
               ),
             ],
           ),
@@ -178,22 +205,28 @@ class _EditableRestTimerState extends State<EditableRestTimer> {
   }
 
   Widget _buildCircularButton({
+    required BuildContext context,
     required IconData icon,
     required VoidCallback onPressed,
     required Color color,
-    required bool isDarkMode,
   }) {
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: color.withOpacity(isDarkMode ? 0.25 : 0.15),
+        color: color.withOpacity(0.15), // Consistent background opacity
       ),
       child: IconButton(
-        icon: Icon(icon, color: color), // Icon color matches base color
+        icon: Icon(icon, color: color),
         onPressed: onPressed,
-        iconSize: AppTheme.iconSize_m, // Use AppTheme.iconSize_m
-        padding: const EdgeInsets.all(AppTheme.spacing_m), // Use AppTheme padding
-        splashRadius: AppTheme.iconSize_m + AppTheme.spacing_s, // Adjust splash radius
+        iconSize: AppTheme.iconSize_m,
+        padding: const EdgeInsets.all(AppTheme.spacing_s + AppTheme.spacing_xs), // 12dp padding, makes button ~48dp
+        splashRadius: AppTheme.iconSize_l, // Appropriate splash radius
+        tooltip: icon == Icons.play_arrow_rounded ? "Start Timer" :
+                 icon == Icons.pause_rounded ? "Pause Timer" :
+                 icon == Icons.replay_rounded ? "Reset Timer" :
+                 icon == Icons.edit_rounded ? "Edit Time" :
+                 icon == Icons.save_alt_outlined ? "Save Time" :
+                 icon == Icons.cancel_outlined ? "Cancel Edit" : null,
       ),
     );
   }

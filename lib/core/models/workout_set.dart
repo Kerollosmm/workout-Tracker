@@ -71,6 +71,33 @@ class WorkoutSet extends HiveObject {
       notes.hashCode ^
       isHardSet.hashCode;
 
+
+  // Added 2025-05-30: For serialization
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'weight': weight,
+      'reps': reps,
+      'timestamp': timestamp.toIso8601String(),
+      'isCompleted': isCompleted,
+      'notes': notes,
+      'isHardSet': isHardSet,
+    };
+  }
+
+  // Added 2025-05-30: Factory constructor for an empty/default instance
+  factory WorkoutSet.empty() {
+    return WorkoutSet(
+      id: '', // Consider using a UUID if an empty set still needs a unique ID upon creation
+      weight: 0,
+      reps: 0,
+      timestamp: DateTime.now(),
+      isCompleted: false,
+      isHardSet: false,
+      notes: '',
+    );
+  }
+
   @override
   String toString() {
     return 'WorkoutSet(id: $id, weight: $weight, reps: $reps, isHardSet: $isHardSet, isCompleted: $isCompleted, notes: $notes, timestamp: $timestamp)';
