@@ -77,7 +77,19 @@ class SettingsScreen extends StatelessWidget {
             // Updated 2025-05-29: Add ThemeSelector section
             _buildSettingsSection(
               context,
-              title: 'Units', // Renamed title as ThemeSelector is removed
+              title: 'Appearance',
+              child: SwitchListTile(
+                title: const Text('Dark Mode', style: TextStyle(color: AppTheme.primaryTextColor)),
+                value: settingsProvider.isDarkMode,
+                activeColor: AppTheme.accentTextColor,
+                onChanged: (value) {
+                  settingsProvider.setDarkMode(value);
+                },
+              ),
+            ),
+            _buildSettingsSection(
+              context,
+              title: 'Units',
               child: UnitsSelector(
                 selectedUnit: settingsProvider.weightUnit,
                 onUnitChanged: (unit) {
@@ -220,29 +232,37 @@ class SettingsScreen extends StatelessWidget {
     ];
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start, // Align children to the start
       children: [
         SwitchListTile(
-          title: const Text('Enable Reminders'),
+          title: const Text('Enable Reminders', style: TextStyle(color: AppTheme.primaryTextColor)),
           value: provider.notificationDays.isNotEmpty,
+          activeColor: AppTheme.accentTextColor, // Color for the switch when it's on
           onChanged: (value) {
             if (value) {
-              provider.setNotificationDays(weekdays);
+              // If turning on, and no days were previously selected, select all. Otherwise, keep previous.
+              if (provider.notificationDays.isEmpty) {
+                provider.setNotificationDays(weekdays);
+              } else {
+                 provider.setNotificationDays(List.from(provider.notificationDays)); // Re-assert to trigger update if needed
+              }
             } else {
               provider.setNotificationDays([]);
             }
           },
         ),
-        if (provider.notificationDays.isNotEmpty)
+        if (provider.notificationDays.isNotEmpty) ...[ // Use ...[] to allow multiple widgets
           ListTile(
-            title: const Text('Reminder Time'),
+            title: const Text('Reminder Time', style: TextStyle(color: AppTheme.primaryTextColor)),
             subtitle: Text(
               provider.notificationTime != null
                   ? _parseNotificationTime(
                     provider.notificationTime!,
                   ).format(context)
-                  : TimeOfDay(hour: 8, minute: 0).format(context),
+                  : TimeOfDay(hour: 8, minute: 0).format(context), // Default display
+              style: const TextStyle(color: AppTheme.secondaryTextColor),
             ),
-
+            trailing: const Icon(Icons.arrow_forward_ios, color: AppTheme.secondaryTextColor, size: 16), // iOS style chevron
             onTap: () async {
               final initialTime =
                   provider.notificationTime != null
@@ -271,68 +291,63 @@ class SettingsScreen extends StatelessWidget {
                 final formattedTime =
                     '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}';
                 provider.setNotificationTime(formattedTime);
-
-                // Schedule notifications using the notification service
-                await NotificationService().scheduleWeeklyNotifications(
-                  days: provider.notificationDays,
-                  time: formattedTime,
-                  title: 'Workout Reminder',
-                  body: 'Time for your daily workout! 💪',
-                );
+                // No need to call NotificationService().scheduleWeeklyNotifications here,
+                // as provider.setNotificationTime() will trigger _updateNotifications()
+                // which handles the scheduling.
               }
             },
           ),
         if (provider.notificationDays.isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
+              horizontal: AppTheme.spacing_m, // Use AppTheme constant
+              vertical: AppTheme.spacing_s,   // Use AppTheme constant
             ),
-            child: ElevatedButton.icon(
+            child: CustomActionButton( // Replace ElevatedButton with CustomActionButton
+              icon: Icons.notifications_active_outlined,
+              label: 'Test Notification',
               onPressed: () async {
                 try {
-                  // Use the showTestNotification method from NotificationService
                   await NotificationService().showTestNotification();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Test notification sent!')),
-                  );
+                  if (context.mounted) { // Check if context is still valid
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Test notification sent!')),
+                    );
+                  }
                 } catch (e) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  if (context.mounted) { // Check if context is still valid
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error sending test notification: $e')),
+                    );
+                  }
                 }
               },
-              label: const Text('Test Notification'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.secondary,
-                foregroundColor: Colors.white,
-              ),
+              // CustomActionButton uses AppTheme defaults, or you can override here if needed
+              // backgroundColor: AppTheme.accentTextColor,
+              // foregroundColor: AppTheme.primaryTextColor,
             ),
           ),
         Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_m, vertical: AppTheme.spacing_s),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
                 'Reminder Days',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.primaryTextColor),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppTheme.spacing_s),
               Wrap(
-                spacing: 8,
+                spacing: AppTheme.spacing_s,
+                runSpacing: AppTheme.spacing_xs, // Add runSpacing for vertical gap in wrapped lines
                 children:
                     weekdays.map((day) {
-                      final isSelected = provider.notificationDays.contains(
-                        day,
-                      );
+                      final isSelected = provider.notificationDays.contains(day);
                       return FilterChip(
-                        label: Text(day.substring(0, 3)),
+                        label: Text(day.substring(0, 3), style: TextStyle(color: isSelected ? AppTheme.primaryTextColor : AppTheme.primaryTextColor.withOpacity(0.8))),
                         selected: isSelected,
                         onSelected: (selected) {
-                          final updatedDays = List<String>.from(
-                            provider.notificationDays,
-                          );
+                          final updatedDays = List<String>.from(provider.notificationDays);
                           if (selected) {
                             if (!updatedDays.contains(day)) {
                               updatedDays.add(day);
@@ -342,13 +357,17 @@ class SettingsScreen extends StatelessWidget {
                           }
                           provider.setNotificationDays(updatedDays);
                         },
+                        backgroundColor: AppTheme.surfaceColor, // Background for unselected
+                        selectedColor: AppTheme.accentTextColor, // Background for selected
+                        checkmarkColor: AppTheme.primaryTextColor, // Color of the checkmark
+                        shape: StadiumBorder(side: BorderSide(color: isSelected ? AppTheme.accentTextColor : AppTheme.secondaryTextColor.withOpacity(0.5))),
                       );
                     }).toList(),
               ),
             ],
           ),
         ),
-      ],
+       ] // End of conditional widgets
     );
   }
 

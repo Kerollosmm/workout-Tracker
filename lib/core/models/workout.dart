@@ -142,12 +142,20 @@ class WorkoutExercise {
   @HiveField(4) // Added 2025-05-23: Rest time for this exercise
   final int? restTimeInSeconds;
 
+  @HiveField(5) // New field for Superset ID
+  String? supersetId;
+
+  @HiveField(6) // New field for order within a Superset
+  int? supersetOrder;
+
   WorkoutExercise({
     required this.exerciseId,
     required this.exerciseName,
     required this.muscleGroup,
     required this.sets,
     this.restTimeInSeconds, // Added 2025-05-23
+    this.supersetId,
+    this.supersetOrder,
   });
 
   WorkoutExercise copyWith({
@@ -156,14 +164,17 @@ class WorkoutExercise {
     String? muscleGroup,
     List<WorkoutSet>? sets,
     int? restTimeInSeconds, // Added 2025-05-23
+    String? supersetId,
+    int? supersetOrder,
   }) {
     return WorkoutExercise(
       exerciseId: exerciseId ?? this.exerciseId,
       exerciseName: exerciseName ?? this.exerciseName,
       muscleGroup: muscleGroup ?? this.muscleGroup,
       sets: sets ?? List.from(this.sets),
-      restTimeInSeconds:
-          restTimeInSeconds ?? this.restTimeInSeconds, // Added 2025-05-23
+      restTimeInSeconds: restTimeInSeconds ?? this.restTimeInSeconds, // Added 2025-05-23
+      supersetId: supersetId ?? this.supersetId,
+      supersetOrder: supersetOrder ?? this.supersetOrder,
     );
   }
 
@@ -198,6 +209,8 @@ class WorkoutExercise {
       'muscleGroup': muscleGroup,
       'sets': sets.map((set) => set.toMap()).toList(),
       'restTimeInSeconds': restTimeInSeconds,
+      'supersetId': supersetId,
+      'supersetOrder': supersetOrder,
     };
   }
 }

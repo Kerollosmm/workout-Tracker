@@ -31,7 +31,7 @@ class _SplashScreenState extends State<SplashScreen>
         }
       });
 
-    _initializeApp();
+    // _initializeApp(); // Removed: Navigation is now handled by MyApp
   }
 
   @override
@@ -40,23 +40,8 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
-  Future<void> _initializeApp() async {
-    // Wait for the animation to complete (2 seconds) + 1 second buffer
-    await Future.delayed(const Duration(seconds: 3));
-
-    if (!mounted) return;
-
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final isSignedIn = await userProvider.isUserSignedIn();
-
-    if (!mounted) return;
-
-    if (isSignedIn) {
-      Navigator.of(context).pushReplacementNamed('/dashboard');
-    } else {
-      Navigator.of(context).pushReplacementNamed('/signin');
-    }
-  }
+  // Removed _initializeApp() method as it's no longer needed here.
+  // Future<void> _initializeApp() async { ... }
 
   @override
   Widget build(BuildContext context) {

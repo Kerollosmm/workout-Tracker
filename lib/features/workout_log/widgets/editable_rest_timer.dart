@@ -14,11 +14,12 @@ class EditableRestTimer extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<EditableRestTimer> createState() => _EditableRestTimerState();
+  State<EditableRestTimer> createState() => EditableRestTimerState();
 }
 
-class _EditableRestTimerState extends State<EditableRestTimer> {
-  late Timer? _timer;
+// Make the State class public by removing the underscore
+class EditableRestTimerState extends State<EditableRestTimer> {
+  Timer? _timer; // Made nullable for explicit null checks
   late int _currentSeconds;
   bool _isRunning = false;
   bool _isEditing = false;
@@ -32,6 +33,40 @@ class _EditableRestTimerState extends State<EditableRestTimer> {
     _timeController.text = (_currentSeconds ~/ 60).toString();
   }
 
+  // Public method to start the timer programmatically
+  void programmaticStartTimer() {
+    if (_isRunning) return; // Already running
+    if (_currentSeconds <= 0) { // If timer is at 0, reset to initial before starting
+        programmaticResetTimer(widget.initialSeconds); // Or a default superset rest time
+    }
+    // Ensure UI updates correctly if called externally
+    if (mounted) {
+       setState(() {
+        _isEditing = false; // Ensure not in editing mode
+      });
+    }
+    _startTimer();
+  }
+
+  // Public method to stop the timer programmatically
+  void programmaticStopTimer() {
+    _stopTimer();
+  }
+
+  // Public method to reset the timer programmatically, optionally with new initial seconds
+  void programmaticResetTimer(int? newInitialSeconds) {
+    _stopTimer();
+    if (mounted) {
+      setState(() {
+        _currentSeconds = newInitialSeconds ?? widget.initialSeconds;
+        _timeController.text = (_currentSeconds ~/ 60).toString();
+        _isEditing = false;
+      });
+    } else { // If not mounted, just update internal state
+        _currentSeconds = newInitialSeconds ?? widget.initialSeconds;
+    }
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -40,41 +75,58 @@ class _EditableRestTimerState extends State<EditableRestTimer> {
   }
 
   void _startTimer() {
-    if (_currentSeconds <= 0) return; // Don't start if time is zero
+    if (_currentSeconds <= 0 && mounted) { // Check mounted before setState
+      setState(() { _isRunning = false; }); // Ensure isRunning is false if timer can't start
+      return;
+    }
+    _timer?.cancel(); // Cancel any existing timer before starting a new one
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_currentSeconds > 0) {
-        setState(() {
+        if (mounted) {
+          setState(() {
+            _currentSeconds--;
+          });
+        } else { // If not mounted, just update backing variable and stop timer if it reaches 0
           _currentSeconds--;
-        });
+          if (_currentSeconds <= 0) _stopTimer();
+        }
       } else {
         _stopTimer();
         _onTimerComplete();
       }
     });
-    setState(() {
+    if (mounted) {
+      setState(() {
+        _isRunning = true;
+        _isEditing = false;
+      });
+    } else {
       _isRunning = true;
-      _isEditing = false; // Exit editing mode when timer starts
-    });
+      _isEditing = false;
+    }
   }
 
   void _stopTimer() {
     _timer?.cancel();
-    setState(() {
+    _timer = null; // Explicitly nullify after cancelling
+    if (mounted) {
+      setState(() {
+        _isRunning = false;
+      });
+    } else {
       _isRunning = false;
-    });
+    }
   }
 
-  void _resetTimer() {
+  void _resetTimer() { // This is for user tap, programmaticResetTimer for external calls
     _stopTimer();
-    setState(() {
-      // Reset to the original initialSeconds passed to the widget,
-      // or to the last successfully set time if it was edited.
-      // For now, let's assume widget.initialSeconds is the true reset point,
-      // or manage an internal 'configuredSeconds' state.
-      _currentSeconds = widget.initialSeconds;
-      _timeController.text = (_currentSeconds ~/ 60).toString();
-      _isEditing = false; // Exit editing mode
-    });
+    if (mounted) {
+      setState(() {
+        _currentSeconds = widget.initialSeconds;
+        _timeController.text = (_currentSeconds ~/ 60).toString();
+        _isEditing = false;
+      });
+    }
   }
 
   void _onTimerComplete() {

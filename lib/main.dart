@@ -200,23 +200,38 @@ void main() async {
               ) => settingsProvider!,
         ),
       ],
-      child: MyApp(),
+      child: const MyApp(),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
-    // Updated 2025-05-29: Always use dark theme
+    // Access SettingsProvider to determine the theme mode
+    final settingsProvider = Provider.of<SettingsProvider>(context);
+
     return MaterialApp(
       navigatorKey: NotificationService.navigatorKey,
       title: 'Workout Tracker Pro',
-      darkTheme: AppTheme.darkTheme, // Use darkTheme
-      themeMode: ThemeMode.dark,     // Force dark mode
+      theme: AppTheme.lightTheme, // Provide light theme
+      darkTheme: AppTheme.darkTheme, // Provide dark theme
+      themeMode: settingsProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light, // Set themeMode based on provider
       routes: AppRoutes.routes,
       debugShowCheckedModeBanner: false,
-      initialRoute: '/splash',
+      home: Consumer<UserProvider>(
+        builder: (context, userProvider, child) {
+          if (userProvider.isLoading) {
+            return const SplashScreen();
+          } else if (userProvider.isSignedIn) {
+            return const DashboardScreen();
+          } else {
+            return const OfflineSignInScreen();
+          }
+        },
+      ),
     );
   }
 }

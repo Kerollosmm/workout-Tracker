@@ -127,7 +127,8 @@ class NotificationService {
         enableVibration: true,
         enableLights: true,
         playSound: true,
-        sound: RawResourceAndroidNotificationSound('notification_sound'),
+        // IMPORTANT: User must copy 'assets/audio/notification.mp3' to 'android/app/src/main/res/raw/notification.mp3'
+        sound: RawResourceAndroidNotificationSound('notification'),
         ledColor: Color(0xFF6200EE),
       );
 
@@ -174,7 +175,8 @@ class NotificationService {
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
-        sound: 'notification_sound.aiff',
+        // IMPORTANT: User must add 'notification.aiff' (converted from mp3) to the iOS project (Runner target).
+        sound: 'notification.aiff',
         interruptionLevel: InterruptionLevel.timeSensitive,
         categoryIdentifier: 'workout',
       ),
@@ -254,7 +256,9 @@ class NotificationService {
           priority: Priority.high,
           icon: '@mipmap/launcher_icon',
           largeIcon: DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
-          sound: const RawResourceAndroidNotificationSound('notification_sound_trimmed'), // Added custom sound for Android
+          // IMPORTANT: User must copy 'assets/audio/notification.mp3' to 'android/app/src/main/res/raw/notification.mp3'
+          // For now, using 'notification' as 'notification_sound_trimmed' is not available.
+          sound: const RawResourceAndroidNotificationSound('notification'),
           playSound: true,
           styleInformation: BigTextStyleInformation(
             body,
@@ -275,7 +279,9 @@ class NotificationService {
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
-        sound: 'notification_sound_trimmed.aiff', // Updated custom sound for iOS
+        // IMPORTANT: User must add 'notification.aiff' (converted from mp3) to the iOS project (Runner target).
+        // For now, using 'notification.aiff' as 'notification_sound_trimmed.aiff' is not available.
+        sound: 'notification.aiff',
         interruptionLevel: InterruptionLevel.timeSensitive,
         categoryIdentifier: 'workout',
       ),

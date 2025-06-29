@@ -77,8 +77,7 @@ class SettingsProvider with ChangeNotifier {
   // Getters with null safety
   String get language => _settings?.language ?? 'en';
   String get weightUnit => _settings?.weightUnit ?? 'kg';
-  // Updated 2025-05-29: Force dark mode
-  bool get isDarkMode => true;
+  bool get isDarkMode => _settings?.isDarkMode ?? true; // Default to true (dark mode) if not set
   List<String> get notificationDays => _settings?.notificationDays ?? [];
   String? get notificationTime => _settings?.notificationTime;
 
@@ -95,8 +94,7 @@ class SettingsProvider with ChangeNotifier {
     // Update local settings
     if (language != null) _settings!.language = language;
     if (weightUnit != null) _settings!.weightUnit = weightUnit;
-    // Updated 2025-05-29: Force dark mode, ignore incoming value for isDarkMode
-    _settings!.isDarkMode = true;
+    if (isDarkMode != null) _settings!.isDarkMode = isDarkMode; // Actually use the passed value
     if (notificationDays != null)
       _settings!.notificationDays = notificationDays;
     if (notificationTime != null)
@@ -124,11 +122,10 @@ class SettingsProvider with ChangeNotifier {
     await updateSettings(weightUnit: unit);
   }
 
-  // Updated 2025-05-29: Force dark mode. This method might be redundant now.
-  Future<void> setDarkMode(bool isDarkMode) async {
+  Future<void> setDarkMode(bool darkMode) async { // Parameter name changed for clarity
     if (_settings != null) {
-      _settings!.isDarkMode = true; // Always set to true
-      await _updateSettings();
+      _settings!.isDarkMode = darkMode; // Use the passed value
+      await _updateSettings(); // This already calls notifyListeners()
     }
   }
 

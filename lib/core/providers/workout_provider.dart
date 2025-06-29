@@ -7,21 +7,36 @@ import 'package:uuid/uuid.dart';
 
 // Added 2025-05-28: Imports for Excel export
 import 'dart:io';
-import 'package:excel/excel.dart' as excel_package;
-import 'dart:typed_data'; // Added 2025-05-30 for Uint8List
-import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart'; // Added 2025-05-29 for permissions
-import 'package:shared_preferences/shared_preferences.dart'; // Added 2025-05-29: For sequential file naming
+// Removed Excel and file picker related imports, as they are now in ExcelExportService
+// import 'dart:io';
+// import 'package:excel/excel.dart' as excel_package;
+// import 'dart:typed_data';
+// import 'package:file_picker/file_picker.dart';
+// import 'package:path_provider/path_provider.dart';
+// import 'package:permission_handler/permission_handler.dart';
+// import 'package:shared_preferences/shared_preferences.dart';
 
 class WorkoutProvider with ChangeNotifier {
+  /// Hive box for storing workouts.
+  /// Hive box for storing workouts.
   Box<Workout>? _workoutsBox;
+
+  /// In-memory cache of workouts, sorted by date descending.
   List<Workout> _cachedWorkouts = [];
+
+  /// Timestamp of the last cache update.
   DateTime? _lastCacheUpdate;
-  final _cacheTimeout = const Duration(minutes: 5);
+
+  /// Duration for how long the cache is considered valid.
+  final Duration _cacheTimeout = const Duration(minutes: 5);
+
+  /// Flag indicating whether the provider has been initialized.
   bool _isInitialized = false;
 
-  // Make the constructor accept an optional Box parameter
+  /// Creates a new instance of [WorkoutProvider].
+  ///
+  /// Optionally accepts a [Box<Workout>] for testing or pre-initialized scenarios.
+  /// If no box is provided, it will attempt to initialize one from Hive.
   WorkoutProvider([Box<Workout>? workoutsBox]) {
     if (workoutsBox != null) {
       _workoutsBox = workoutsBox;
@@ -32,7 +47,9 @@ class WorkoutProvider with ChangeNotifier {
     }
   }
 
-  // Try to initialize without throwing errors
+  /// Tries to initialize the provider by opening the Hive box and loading initial data.
+  /// This method is called by the constructor if no pre-initialized box is provided.
+  /// It catches and logs errors during initialization to prevent app crashes.
   Future<void> _tryInitialize() async {
     try {
       await initialize();
@@ -43,11 +60,15 @@ class WorkoutProvider with ChangeNotifier {
     }
   }
 
-  // Add initialization method for deferred initialization
+  /// Initializes the [WorkoutProvider] by opening the 'workouts' Hive box
+  /// and populating the cache.
+  ///
+  /// This method should be called before accessing workout data if the provider
+  /// was not initialized with a pre-opened box.
+  /// Throws an exception if Hive box initialization fails.
   Future<void> initialize() async {
     if (!_isInitialized) {
       try {
-        // Updated 2025-05-28: Check if box is already open, if not, open it
         if (!Hive.isBoxOpen('workouts')) {
           debugPrint('WorkoutProvider: Opening workouts box');
           _workoutsBox = await Hive.openBox<Workout>('workouts');
@@ -75,7 +96,8 @@ class WorkoutProvider with ChangeNotifier {
     }
   }
 
-  // Get box safely with error handling
+  /// Safely retrieves the Hive box instance, attempting initialization if necessary.
+  /// Returns the [Box<Workout>] or null if initialization fails.
   Future<Box<Workout>?> _getBox() async {
     if (_workoutsBox == null || !_isInitialized) {
       try {
@@ -83,7 +105,6 @@ class WorkoutProvider with ChangeNotifier {
           'WorkoutProvider: Box not initialized, attempting initialization',
         );
         await initialize();
-        // After initialize, check again if box is available
         if (_workoutsBox == null) {
           debugPrint('WorkoutProvider: Box still null after initialization');
           return null;
@@ -96,6 +117,8 @@ class WorkoutProvider with ChangeNotifier {
     return _workoutsBox;
   }
 
+  /// Updates the in-memory cache [_cachedWorkouts] from the Hive box.
+  /// Sorts workouts by date in descending order.
   void _updateCache() {
     if (_workoutsBox != null) {
       _cachedWorkouts =
@@ -108,14 +131,19 @@ class WorkoutProvider with ChangeNotifier {
     }
   }
 
+  /// Checks if the current cache is still valid based on [_cacheTimeout].
   bool _isCacheValid() {
     return _lastCacheUpdate != null &&
         DateTime.now().difference(_lastCacheUpdate!) < _cacheTimeout;
   }
 
+  /// Returns a list of all workouts.
+  ///
+  /// If the provider is not initialized, returns an empty list.
+  /// Updates the cache if it's invalid before returning data.
   List<Workout> get workouts {
     if (!_isInitialized) {
-      debugPrint('Warning: WorkoutProvider not initialized');
+      debugPrint('Warning: WorkoutProvider not initialized, returning empty list.');
       return [];
     }
     debugPrint(
@@ -124,64 +152,79 @@ class WorkoutProvider with ChangeNotifier {
     if (!_isCacheValid()) {
       _updateCache();
     }
-    return _cachedWorkouts;
+    return List<Workout>.unmodifiable(_cachedWorkouts);
   }
 
+  /// Retrieves workouts relevant to a specific [date].
+  /// If [date] is null, returns all workouts.
   List<Workout> _getRelevantWorkouts(DateTime? date) {
     if (!_isInitialized) return [];
     if (date == null) return workouts;
 
-    final dayStart = DateTime(date.year, date.month, date.day);
-    final dayEnd = dayStart.add(const Duration(days: 1));
+    final DateTime dayStart = DateTime(date.year, date.month, date.day);
+    final DateTime dayEnd = dayStart.add(const Duration(days: 1));
 
     return workouts
         .where(
-          (w) =>
+          (Workout w) =>
               w.date.isAfter(dayStart.subtract(const Duration(seconds: 1))) &&
               w.date.isBefore(dayEnd),
         )
         .toList();
   }
 
-  // Alias method to match DashboardScreen's expected method name
+  /// Retrieves workouts for a specific [date].
+  /// Alias for [_getRelevantWorkouts] to match usage in DashboardScreen.
   List<Workout> getWorkoutsForDate(DateTime date) {
     return getWorkoutsForDay(date);
   }
 
+  /// Calculates the total weight lifted for workouts on a specific [date].
+  /// If [date] is null, calculates for all workouts.
   double getTotalWeightLifted([DateTime? date]) {
-    final relevantWorkouts = _getRelevantWorkouts(date);
-    return relevantWorkouts.fold(
+    final List<Workout> relevantWorkouts = _getRelevantWorkouts(date);
+    return relevantWorkouts.fold<double>(
       0.0,
-      (total, workout) => total + workout.totalWeightLifted,
+      (double total, Workout workout) => total + workout.totalWeightLifted,
     );
   }
 
+  /// Calculates the effective weight lifted (e.g., excluding bodyweight exercises if applicable)
+  /// for workouts on a specific [date].
+  /// If [date] is null, calculates for all workouts.
   double getEffectiveWeightLifted([DateTime? date]) {
-    final relevantWorkouts = _getRelevantWorkouts(date);
-    return relevantWorkouts.fold(
+    final List<Workout> relevantWorkouts = _getRelevantWorkouts(date);
+    return relevantWorkouts.fold<double>(
       0.0,
-      (total, workout) => total + workout.effectiveWeightLifted,
+      (double total, Workout workout) => total + workout.effectiveWeightLifted,
     );
   }
 
+  /// Calculates the total number of sets performed for workouts on a specific [date].
+  /// If [date] is null, calculates for all workouts.
   int getTotalSets([DateTime? date]) {
-    final relevantWorkouts = _getRelevantWorkouts(date);
-    return relevantWorkouts.fold(
+    final List<Workout> relevantWorkouts = _getRelevantWorkouts(date);
+    return relevantWorkouts.fold<int>(
       0,
-      (total, workout) => total + workout.totalSets,
+      (int total, Workout workout) => total + workout.totalSets,
     );
   }
 
+  /// Calculates the total number of hard sets performed for workouts on a specific [date].
+  /// If [date] is null, calculates for all workouts.
   int getHardSetCount([DateTime? date]) {
-    final relevantWorkouts = _getRelevantWorkouts(date);
-    return relevantWorkouts.fold(
+    final List<Workout> relevantWorkouts = _getRelevantWorkouts(date);
+    return relevantWorkouts.fold<int>(
       0,
-      (total, workout) => total + workout.hardSetCount,
+      (int total, Workout workout) => total + workout.hardSetCount,
     );
   }
 
+  /// Adds a new [workout] to the Hive box and updates the cache.
+  /// Notifies listeners after the operation.
+  /// Throws an exception if the Hive box is unavailable or if the add operation fails.
   Future<void> addWorkout(Workout workout) async {
-    final box = await _getBox();
+    final Box<Workout>? box = await _getBox();
     if (box == null) {
       debugPrint('WorkoutProvider: Workouts box is null, cannot add workout.');
       throw Exception('WorkoutProvider: Workouts box is unavailable.');
@@ -196,12 +239,16 @@ class WorkoutProvider with ChangeNotifier {
       debugPrint('WorkoutProvider: workouts box hashcode: ${box.hashCode}');
     } catch (e) {
       debugPrint('WorkoutProvider: Error adding workout: $e');
-      rethrow; // Rethrow the exception to be handled by the caller
+      rethrow;
     }
   }
 
+  /// Updates an existing [workout] in the Hive box and updates the cache.
+  /// Notifies listeners after the operation.
+  /// Throws an exception if the Hive box is unavailable or if the update operation fails.
+  /// If the workout ID is not found, a debug message is printed.
   Future<void> updateWorkout(Workout workout) async {
-    final box = await _getBox();
+    final Box<Workout>? box = await _getBox();
     if (box == null) {
       debugPrint(
         'WorkoutProvider: Workouts box is null, cannot update workout.',
@@ -209,7 +256,8 @@ class WorkoutProvider with ChangeNotifier {
       throw Exception('WorkoutProvider: Workouts box is unavailable.');
     }
     try {
-      final index = box.values.toList().indexWhere((w) => w.id == workout.id);
+      final List<Workout> allWorkouts = box.values.toList();
+      final int index = allWorkouts.indexWhere((w) => w.id == workout.id);
 
       if (index != -1) {
         await box.putAt(index, workout);
@@ -223,17 +271,20 @@ class WorkoutProvider with ChangeNotifier {
         debugPrint(
           'WorkoutProvider: Workout with id ${workout.id} not found for update.',
         );
-        // Optionally, throw an exception or handle as an add operation
+        // Consider throwing an exception if not found is an error state.
         // throw Exception('Workout with id ${workout.id} not found for update.');
       }
     } catch (e) {
       debugPrint('WorkoutProvider: Error updating workout: $e');
-      rethrow; // Rethrow the exception to be handled by the caller
+      rethrow;
     }
   }
 
+  /// Deletes a workout with the given [id] from the Hive box and updates the cache.
+  /// Notifies listeners after the operation.
+  /// Throws an exception if the Hive box is unavailable or if the delete operation fails.
   Future<void> deleteWorkout(String id) async {
-    final box = await _getBox();
+    final Box<Workout>? box = await _getBox();
     if (box == null) {
       debugPrint(
         'WorkoutProvider: Workouts box is null, cannot delete workout.',
@@ -241,94 +292,116 @@ class WorkoutProvider with ChangeNotifier {
       throw Exception('WorkoutProvider: Workouts box is unavailable.');
     }
     try {
-      await box.delete(id);
-      _updateCache();
-      notifyListeners();
-      debugPrint('WorkoutProvider: Workout with id: $id deleted successfully');
+      // Hive's delete method uses the key, which for auto-incrementing boxes is not the ID.
+      // We need to find the key of the workout with the given ID.
+      final Map<dynamic, Workout> map = box.toMap();
+      dynamic keyToDelete;
+      map.forEach((key, value) {
+        if (value.id == id) {
+          keyToDelete = key;
+        }
+      });
+
+      if (keyToDelete != null) {
+        await box.delete(keyToDelete);
+        _updateCache();
+        notifyListeners();
+        debugPrint('WorkoutProvider: Workout with id: $id deleted successfully');
+      } else {
+        debugPrint('WorkoutProvider: Workout with id: $id not found for deletion.');
+      }
     } catch (e) {
       debugPrint('WorkoutProvider: Error deleting workout: $e');
       rethrow;
     }
   }
 
+  /// Retrieves progress data for a specific exercise, identified by [exerciseId].
+  /// Returns a list of maps, each containing date, max weight, total reps, total sets, and volume.
+  /// Limits the data to the latest [limit] workouts (default is 10).
+  /// Returns an empty list if the provider is not initialized.
   List<Map<String, dynamic>> getExerciseProgressData(
     String exerciseId, {
     int limit = 10,
   }) {
     if (!_isInitialized) return [];
 
-    final workoutsWithExercise =
+    final List<Workout> workoutsWithExercise =
         workouts
-            .where((w) => w.exercises.any((e) => e.exerciseId == exerciseId))
+            .where((Workout w) => w.exercises.any((e) => e.exerciseId == exerciseId))
             .toList()
-          ..sort((a, b) => a.date.compareTo(b.date));
+          ..sort((a, b) => a.date.compareTo(b.date)); // Sorted ascending by date for chronological progress
 
-    final limitedWorkouts =
+    final List<Workout> limitedWorkouts =
         workoutsWithExercise.length > limit
             ? workoutsWithExercise.sublist(workoutsWithExercise.length - limit)
             : workoutsWithExercise;
 
-    return limitedWorkouts.map((w) {
-      final exercise = w.exercises.firstWhere(
+    return limitedWorkouts.map((Workout w) {
+      final WorkoutExercise exercise = w.exercises.firstWhere(
         (e) => e.exerciseId == exerciseId,
       );
-      final maxWeight = exercise.sets.fold(
+      final double maxWeight = exercise.sets.fold<double>(
         0.0,
-        (max, set) => set.weight > max ? set.weight : max,
+        (double max, WorkoutSet set) => set.weight > max ? set.weight : max,
       );
-      final totalReps = exercise.sets.fold(0, (sum, set) => sum + set.reps);
-      final totalSets = exercise.sets.length;
-      return {
+      final int totalReps = exercise.sets.fold<int>(0, (int sum, WorkoutSet set) => sum + set.reps);
+      final int totalSets = exercise.sets.length;
+      return <String, dynamic>{
         'date': w.date,
         'weight': maxWeight,
         'reps': totalReps,
         'sets': totalSets,
-        'volume': exercise.sets.fold(
+        'volume': exercise.sets.fold<double>(
           0.0,
-          (sum, set) => sum + (set.weight * set.reps),
+          (double sum, WorkoutSet set) => sum + (set.weight * set.reps),
         ),
       };
     }).toList();
   }
 
+  /// Calculates the distribution of exercises by muscle group across all workouts.
+  /// Returns a map where keys are muscle group names and values are the count of exercises.
+  /// Returns an empty map if the provider is not initialized.
   Map<String, int> getMuscleGroupDistribution() {
     if (!_isInitialized) return {};
 
-    final distribution = <String, int>{};
+    final Map<String, int> distribution = <String, int>{};
 
-    for (final workout in workouts) {
-      for (final exercise in workout.exercises) {
+    for (final Workout workout in workouts) {
+      for (final WorkoutExercise exercise in workout.exercises) {
         distribution[exercise.muscleGroup] =
             (distribution[exercise.muscleGroup] ?? 0) + 1;
       }
     }
-
     return distribution;
   }
 
+  /// Retrieves statistics for the dashboard, including today's, week's, and month's performance,
+  /// muscle group distribution, and daily workout volume for the last week.
+  /// Returns default zeroed stats if the provider is not initialized.
   Map<String, dynamic> getDashboardStats() {
     if (!_isInitialized) {
-      return {
-        'today': {'workouts': 0, 'sets': 0, 'weight': 0.0, 'hardSets': 0},
-        'week': {'workouts': 0, 'sets': 0, 'weight': 0.0, 'hardSets': 0},
-        'month': {'workouts': 0, 'sets': 0, 'weight': 0.0, 'hardSets': 0},
+      return <String, dynamic>{
+        'today': <String, dynamic>{'workouts': 0, 'sets': 0, 'weight': 0.0, 'hardSets': 0},
+        'week': <String, dynamic>{'workouts': 0, 'sets': 0, 'weight': 0.0, 'hardSets': 0},
+        'month': <String, dynamic>{'workouts': 0, 'sets': 0, 'weight': 0.0, 'hardSets': 0},
         'muscleGroupData': <String, int>{},
         'dailyData': <Map<String, dynamic>>[],
       };
     }
 
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
 
-    // Initialize default values
-    final defaultStats = {
+    const Map<String, dynamic> defaultStats = <String, dynamic>{
       'workouts': 0,
       'sets': 0,
       'weight': 0.0,
       'hardSets': 0,
     };
 
-    return {
+    return <String, dynamic>{
       'today':
           _calculatePeriodStats(_getRelevantWorkouts(today)) ?? defaultStats,
       'week':
@@ -341,69 +414,83 @@ class WorkoutProvider with ChangeNotifier {
     };
   }
 
+  /// Calculates period statistics (workouts, sets, weight, hard sets) for a given list of [workouts].
+  /// Returns null if the list is empty.
   Map<String, dynamic>? _calculatePeriodStats(List<Workout> workouts) {
     if (workouts.isEmpty) return null;
 
-    return {
+    return <String, dynamic>{
       'workouts': workouts.length,
-      'sets': workouts.fold(0, (sum, w) => sum + w.totalSets),
-      'weight': workouts.fold(0.0, (sum, w) => sum + w.totalWeightLifted),
-      'hardSets': workouts.fold(0, (sum, w) => sum + w.hardSetCount),
+      'sets': workouts.fold<int>(0, (int sum, Workout w) => sum + w.totalSets),
+      'weight': workouts.fold<double>(0.0, (double sum, Workout w) => sum + w.totalWeightLifted),
+      'hardSets': workouts.fold<int>(0, (int sum, Workout w) => sum + w.hardSetCount),
     };
   }
 
+  /// Retrieves workouts performed within the last [days].
+  /// Returns an empty list if the provider is not initialized.
   List<Workout> _getRelevantWorkoutsForDays(int days) {
     if (!_isInitialized) return [];
 
-    final now = DateTime.now();
-    final startDate = DateTime(
+    final DateTime now = DateTime.now();
+    final DateTime startDate = DateTime(
       now.year,
       now.month,
       now.day,
-    ).subtract(Duration(days: days - 1));
+    ).subtract(Duration(days: days - 1)); // Inclusive of the start day
 
     return workouts
         .where(
-          (w) =>
+          (Workout w) =>
               w.date.isAfter(startDate.subtract(const Duration(seconds: 1))) &&
-              w.date.isBefore(now.add(const Duration(days: 1))),
+              w.date.isBefore(now.add(const Duration(days: 1))), // Inclusive of today
         )
         .toList();
   }
 
+  /// Retrieves daily workout data (day name, total volume, date) for the last 7 days.
+  /// Returns a list of 7 entries with zero volume if not initialized.
   List<Map<String, dynamic>> _getWeeklyDailyData() {
     if (!_isInitialized) {
-      return List.generate(
+      return List<Map<String, dynamic>>.generate(
         7,
-        (index) => {
-          'day': '',
-          'volume': 0.0,
-          'date': DateTime.now().subtract(Duration(days: 6 - index)),
+        (int index) {
+          final DateTime date = DateTime.now().subtract(Duration(days: 6 - index));
+          return <String, dynamic>{
+            'day': DateFormat('E').format(date), // 'E' gives abbreviated day name (e.g., 'Mon')
+            'volume': 0.0,
+            'date': date,
+          };
         },
       );
     }
 
-    final dailyData = List.generate(7, (index) {
-      final date = DateTime.now().subtract(Duration(days: 6 - index));
-      final workouts = _getRelevantWorkouts(date);
-      return {
+    final List<Map<String, dynamic>> dailyData = List<Map<String, dynamic>>.generate(7, (int index) {
+      final DateTime date = DateTime.now().subtract(Duration(days: 6 - index));
+      final List<Workout> dailyWorkouts = _getRelevantWorkouts(date);
+      return <String, dynamic>{
         'day': DateFormat('E').format(date),
-        'volume': workouts.fold(0.0, (sum, w) => sum + w.totalWeightLifted),
+        'volume': dailyWorkouts.fold<double>(0.0, (double sum, Workout w) => sum + w.totalWeightLifted),
         'date': date,
       };
     });
     return dailyData;
   }
 
+  /// Retrieves workouts for a specific [date].
   List<Workout> getWorkoutsForDay(DateTime date) {
     return _getRelevantWorkouts(date);
   }
 
+  /// Returns the latest workout based on date.
+  /// Returns null if not initialized or if there are no workouts.
   Workout? getLatestWorkout() {
     if (!_isInitialized || workouts.isEmpty) return null;
-    return workouts.first; // Already sorted by date in _updateCache
+    // Assumes workouts list is already sorted by date descending by _updateCache
+    return workouts.first;
   }
 
+  /// Creates a new empty [Workout] object with a unique ID and current date.
   Workout createEmptyWorkout() {
     return Workout(
       id: const Uuid().v4(),
@@ -414,171 +501,8 @@ class WorkoutProvider with ChangeNotifier {
     );
   }
 
-  // Updated 2025-05-29: Changed filename generation to be sequential
-  Future<String?> exportWorkoutDataToExcel() async {
-    if (!_isInitialized || _cachedWorkouts.isEmpty) {
-      debugPrint(
-        'WorkoutProvider: No workouts to export or provider not initialized.',
-      );
-      return null;
-    }
-
-    // Added 2025-05-29: Check and request storage permissions
-    if (Platform.isAndroid) {
-      var status = await Permission.storage.status;
-      if (!status.isGranted) {
-        status = await Permission.storage.request();
-      }
-      if (!status.isGranted) {
-        debugPrint('WorkoutProvider: Storage permission denied for Excel export.');
-        // Optionally, communicate this back to the UI with a specific error/message
-        return null; // Or throw an exception that the UI can catch
-      }
-    }
-
-    try {
-      final excel = excel_package.Excel.createExcel();
-      final sheet = excel['Workout Data'];
-
-      // Add headers
-      // Updated 2025-05-28: Removed 'Exercise Notes' as it's not in the model
-      final headers = [
-        'Date',
-        'Workout Name',
-        'Exercise Name',
-        'Set Number',
-        'Reps',
-        'Weight',
-        'Is Hard Set',
-        'Set Notes',
-        // 'Exercise Notes', // Removed
-        'Workout Notes',
-        'Duration (seconds)',
-      ];
-      for (var i = 0; i < headers.length; i++) {
-        sheet
-            .cell(
-              excel_package.CellIndex.indexByColumnRow(
-                columnIndex: i,
-                rowIndex: 0,
-              ),
-            )
-            .value = excel_package.TextCellValue(headers[i]);
-      }
-
-      int rowIndex = 1;
-      for (final workout in _cachedWorkouts) {
-        for (final exercise in workout.exercises) {
-          if (exercise.sets.isEmpty) {
-            // Log exercises with no sets too
-            final row = [
-              excel_package.TextCellValue(
-                DateFormat('yyyy-MM-dd HH:mm').format(workout.date),
-              ),
-              excel_package.TextCellValue(
-                workout.workoutName ?? '',
-              ), // Updated 2025-05-28
-              excel_package.TextCellValue(exercise.exerciseName),
-              excel_package.TextCellValue('-'), // Set Number
-              excel_package.TextCellValue('-'), // Reps
-              excel_package.TextCellValue('-'), // Weight
-              excel_package.TextCellValue('-'), // Is Hard Set
-              excel_package.TextCellValue('-'), // Set Notes
-              // excel_package.TextCellValue(exercise.notes ?? ''), // Removed 2025-05-28
-              excel_package.TextCellValue(workout.notes ?? ''),
-              excel_package.IntCellValue(
-                workout.duration,
-              ), // Updated 2025-05-28
-            ];
-            for (var i = 0; i < row.length; i++) {
-              sheet
-                  .cell(
-                    excel_package.CellIndex.indexByColumnRow(
-                      columnIndex: i,
-                      rowIndex: rowIndex,
-                    ),
-                  )
-                  .value = row[i];
-            }
-            rowIndex++;
-          } else {
-            for (var i = 0; i < exercise.sets.length; i++) {
-              final set = exercise.sets[i];
-              final row = [
-                excel_package.TextCellValue(
-                  DateFormat('yyyy-MM-dd HH:mm').format(workout.date),
-                ),
-                excel_package.TextCellValue(
-                  workout.workoutName ?? '',
-                ), // Updated 2025-05-28
-                excel_package.TextCellValue(exercise.exerciseName),
-                excel_package.IntCellValue(i + 1), // Set Number
-                excel_package.IntCellValue(set.reps),
-                excel_package.DoubleCellValue(set.weight),
-                excel_package.TextCellValue(
-                  set.isHardSet.toString(),
-                ), // Updated 2025-05-28
-                excel_package.TextCellValue(set.notes ?? ''),
-                // excel_package.TextCellValue(exercise.notes ?? ''), // Removed 2025-05-28
-                excel_package.TextCellValue(workout.notes ?? ''),
-                excel_package.IntCellValue(
-                  workout.duration,
-                ), // Updated 2025-05-28
-              ];
-              for (var j = 0; j < row.length; j++) {
-                sheet
-                    .cell(
-                      excel_package.CellIndex.indexByColumnRow(
-                        columnIndex: j,
-                        rowIndex: rowIndex,
-                      ),
-                    )
-                    .value = row[j];
-              }
-              rowIndex++;
-            }
-          }
-        }
-      }
-
-      // Get a file path from the user
-      // Updated 2025-05-29: Implement sequential file naming
-      final prefs = await SharedPreferences.getInstance();
-      int exportCounter = prefs.getInt('excel_export_counter') ?? 0;
-      exportCounter++; // Increment for the new file
-
-      final String suggestedFileName = 'workout_tracker_pro_$exportCounter.xlsx'; // Updated 2025-05-29: More specific name
-
-      // Updated 2025-05-30: Encode Excel to bytes before picking file
-      final List<int>? fileBytes = excel.encode();
-      if (fileBytes == null) {
-        debugPrint('WorkoutProvider: Failed to encode Excel data to bytes.');
-        return null; // Or throw an appropriate exception
-      }
-
-      final String? outputFile = await FilePicker.platform.saveFile(
-        dialogTitle: 'Please select an output file:',
-        fileName: suggestedFileName,
-        allowedExtensions: ['xlsx'], // Good for UX, might not be strictly needed with bytes
-        type: FileType.custom,      // Good for UX, might not be strictly needed with bytes
-        bytes: fileBytes != null ? Uint8List.fromList(fileBytes) : null, // Provide the Excel data as bytes
-      );
-
-      if (outputFile != null) {
-        // Save the new counter only if file was saved successfully
-        await prefs.setInt('excel_export_counter', exportCounter);
-        debugPrint('WorkoutProvider: Excel data exported to $outputFile');
-        return outputFile; // Path to the saved file
-      } else {
-        // User cancelled the picker or an error occurred during saving
-        debugPrint('WorkoutProvider: Excel export cancelled by user or file saving failed.');
-        return null;
-      }
-    } catch (e) {
-      debugPrint('WorkoutProvider: Error exporting workout data to Excel: $e');
-      return null;
-    }
-  }
+  // Note: exportWorkoutDataToExcel method has been removed and moved to ExcelExportService.
+  // The UI should now call ExcelExportService directly, providing it with `workouts` from this provider.
 
   @override
   void dispose() {

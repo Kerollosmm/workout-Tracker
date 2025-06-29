@@ -128,5 +128,117 @@ class AppTheme {
       ),
     );
   }
-  // Updated 2025-05-29: lightTheme getter removed as app is dark-theme only.
+
+  // Light theme definition
+  static ThemeData get lightTheme {
+    // Define light theme specific colors
+    const Color lightPrimaryColor = Color(0xFFFFFFFF); // White
+    const Color lightBackgroundColor = Color(0xFFF2F2F7); // System Gray 6
+    const Color lightCardColor = Color(0xFFFFFFFF);    // White cards
+    const Color lightSurfaceColor = Color(0xFFFFFFFF);   // White surfaces
+    const Color lightPrimaryTextColor = Color(0xFF000000); // Black text
+    const Color lightSecondaryTextColor = Color(0xFF3C3C43); // System Gray (opacity 60%)
+
+    return ThemeData.light().copyWith(
+      primaryColor: lightPrimaryColor,
+      scaffoldBackgroundColor: lightBackgroundColor,
+      cardColor: lightCardColor,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: lightBackgroundColor, // Light background for appbar
+        foregroundColor: lightPrimaryTextColor, // Dark text for appbar
+        elevation: 0, // Flat design
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          color: lightPrimaryTextColor,
+          fontSize: 28, // iOS Large Title size
+          fontWeight: FontWeight.bold,
+        ),
+        iconTheme: IconThemeData(color: accentTextColor), // Accent color for icons like back button
+      ),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: lightCardColor, // Slightly off-white or white
+        selectedItemColor: accentTextColor, // Use accent for selected items
+        unselectedItemColor: lightSecondaryTextColor,
+        type: BottomNavigationBarType.fixed,
+        elevation: 0, // Flat
+      ),
+      cardTheme: CardTheme(
+        color: lightCardColor,
+        elevation: 0, // Flat cards
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(borderRadius_m),
+        ),
+      ),
+      textTheme: const TextTheme(
+        headlineLarge: TextStyle(
+          color: lightPrimaryTextColor,
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+        ),
+        headlineMedium: TextStyle(
+          color: lightPrimaryTextColor,
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+        ),
+        titleLarge: TextStyle(
+          color: lightPrimaryTextColor,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
+        titleMedium: TextStyle(
+          color: lightPrimaryTextColor,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+        bodyLarge: TextStyle(color: lightPrimaryTextColor, fontSize: 16),
+        bodyMedium: TextStyle(color: lightSecondaryTextColor, fontSize: 14),
+        bodySmall: TextStyle(color: lightSecondaryTextColor, fontSize: 12),
+      ),
+      colorScheme: const ColorScheme.light(
+        primary: accentTextColor, // Main interactive color
+        secondary: exerciseRingColor, // Another accent
+        surface: lightSurfaceColor,
+        background: lightBackgroundColor,
+        onPrimary: lightPrimaryTextColor, // Text on primary color buttons
+        onSecondary: lightPrimaryTextColor,
+        onSurface: lightPrimaryTextColor,
+        onBackground: lightPrimaryTextColor,
+        error: errorColor,
+      ),
+      // Specific widget themes
+      switchTheme: SwitchThemeData(
+        thumbColor: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
+          if (states.contains(MaterialState.selected)) {
+            return accentTextColor;
+          }
+          return null; // Defaults to system gray
+        }),
+        trackColor: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
+          if (states.contains(MaterialState.selected)) {
+            return accentTextColor.withOpacity(0.5);
+          }
+          return null; // Defaults to system gray
+        }),
+      ),
+      filterChipTheme: FilterChipThemeData(
+        backgroundColor: lightSecondaryTextColor.withOpacity(0.1),
+        selectedColor: accentTextColor,
+        checkmarkColor: lightPrimaryTextColor,
+        labelStyle: TextStyle(color: lightPrimaryTextColor.withOpacity(0.8)),
+        secondaryLabelStyle: const TextStyle(color: lightPrimaryTextColor), // For selected chip
+        shape: StadiumBorder(side: BorderSide(color: lightSecondaryTextColor.withOpacity(0.2))),
+      ),
+       radioTheme: RadioThemeData(
+        fillColor: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
+          if (states.contains(MaterialState.selected)) {
+            return accentTextColor;
+          }
+          return lightSecondaryTextColor;
+        }),
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: accentTextColor, // Default icon color for ListTiles
+      )
+    );
+  }
 }

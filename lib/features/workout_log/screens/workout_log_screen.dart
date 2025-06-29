@@ -21,7 +21,7 @@ class WorkoutLogScreen extends StatefulWidget {
 }
 
 class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
-  final uuid = Uuid();
+  final Uuid uuid = Uuid();
   List<WorkoutExercise> selectedExercises = [];
   DateTime workoutDate = DateTime.now();
   String? notes;
@@ -29,9 +29,16 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
   bool _isSaving = false;
   Timer? _debounceTimer;
 
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+
+
+  // Map to store GlobalKeys for superset timers
+  final Map<String, GlobalKey<EditableRestTimerState>> _supersetTimerKeys = {};
+
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _supersetTimerKeys.clear();
     super.dispose();
   }
 
@@ -79,6 +86,8 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
               sets: [],
             ),
           );
+          // Animate the addition
+          _listKey.currentState?.insertItem(selectedExercises.length - 1, duration: const Duration(milliseconds: 300));
         });
       }
     } catch (e) {
@@ -181,9 +190,45 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
   }
 
   bool _validateWorkout() {
-    return !selectedExercises.any(
-      (exercise) =>
-          exercise.sets.any((set) => set.weight == 0 || set.reps == 0),
+    if (selectedExercises.isEmpty) {
+      // Optionally, allow saving an empty workout or show a specific message.
+      // For now, let's consider an empty workout as valid if no exercises were added.
+      return true;
+    }
+    for (final exercise in selectedExercises) {
+      if (exercise.sets.isEmpty && selectedExercises.length == 1) {
+        // Allow saving if it's the only exercise and has no sets yet (user might be building it)
+        // This could be refined based on desired UX.
+      } else if (exercise.sets.isEmpty && selectedExercises.length > 1) {
+        // If there are multiple exercises, each should ideally have sets.
+        // Or, this could be a prompt "Exercise X has no sets, continue?"
+        // For now, strict: an exercise implies sets.
+        // ScaffoldMessenger.of(context).showSnackBar(_buildValidationSnackBar('Exercise "${exercise.exerciseName}" has no sets.'));
+        // return false; // Example of stricter validation
+      }
+      for (final set in exercise.sets) {
+        if (set.weight <= 0) {
+          ScaffoldMessenger.of(context).showSnackBar(_buildValidationSnackBar('Weight must be greater than 0 for all sets.'));
+          return false;
+        }
+        if (set.reps <= 0) {
+          ScaffoldMessenger.of(context).showSnackBar(_buildValidationSnackBar('Reps must be greater than 0 for all sets.'));
+          return false;
+        }
+        // Consider adding upper bounds or other checks if necessary
+      }
+    }
+    return true;
+  }
+
+  SnackBar _buildValidationSnackBar(String message) {
+    return SnackBar(
+      content: Text(message),
+      backgroundColor: Colors.orangeAccent,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
     );
   }
 
@@ -256,27 +301,147 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     });
   }
 
+  GlobalKey<EditableRestTimerState> _getSupersetTimerKey(String supersetId) {
+    _supersetTimerKeys.putIfAbsent(supersetId, () => GlobalKey<EditableRestTimerState>());
+    return _supersetTimerKeys[supersetId]!;
+  }
+
   void _addSet(int exerciseIndex) {
     setState(() {
       if (exerciseIndex >= selectedExercises.length) return;
-
-      selectedExercises[exerciseIndex].sets.add(
+      final exercise = selectedExercises[exerciseIndex];
+      exercise.sets.add(
         WorkoutSet(
           id: uuid.v4(),
-          weight: 0,
-          reps: 0,
+          weight: 0, // Or copy from previous set
+          reps: 0,   // Or copy from previous set
           timestamp: DateTime.now(),
           isHardSet: false,
         ),
       );
+
+      // Check if this set completes a superset round
+      if (exercise.supersetId != null) {
+        _checkAndTriggerSupersetTimer(exercise.supersetId!, exerciseIndex);
+      }
     });
   }
 
-  void _removeExercise(int exerciseIndex) {
-    setState(() {
-      selectedExercises.removeAt(exerciseIndex);
-    });
+  String _getSupersetTitleWithProgress(List<WorkoutExercise> exercisesInSuperset, String supersetId, int supersetDisplayIndex) {
+    if (exercisesInSuperset.isEmpty) return 'Superset';
+
+    int completedRounds = exercisesInSuperset.map((e) => e.sets.length).fold(0, (prev, len) => prev == 0 ? len : (len < prev ? len : prev));
+    if (exercisesInSuperset.any((e) => e.sets.isEmpty) && exercisesInSuperset.length > 0) completedRounds = 0;
+
+
+    int currentRoundSetCount = completedRounds + 1;
+    int exercisesDoneThisRound = 0;
+    for (var exercise in exercisesInSuperset) {
+      if (exercise.sets.length >= currentRoundSetCount) {
+        exercisesDoneThisRound++;
+      }
+    }
+
+    String baseTitle = 'Superset ${supersetDisplayIndex + 1}'; // Use passed display index
+    if (exercisesInSuperset.every((ex) => ex.sets.length == completedRounds) && completedRounds > 0 && exercisesDoneThisRound == exercisesInSuperset.length) {
+       return '$baseTitle (Round ${completedRounds + 1}: 0/${exercisesInSuperset.length} done)';
+    }
+     return '$baseTitle (Round $currentRoundSetCount: $exercisesDoneThisRound/${exercisesInSuperset.length} done)';
   }
+
+
+  void _checkAndTriggerSupersetTimer(String supersetId, int currentExerciseOriginalIndex) {
+    final exercisesInSuperset = selectedExercises
+        .where((ex) => ex.supersetId == supersetId)
+        .toList()
+      ..sort((a, b) => (a.supersetOrder ?? 0).compareTo(b.supersetOrder ?? 0));
+
+    if (exercisesInSuperset.isEmpty) return;
+
+    final currentExerciseInSuperset = exercisesInSuperset.firstWhere(
+        (ex) => selectedExercises.indexOf(ex) == currentExerciseOriginalIndex, // This comparison might be fragile if list order changes unexpectedly.
+                                                                            // A more robust way is to compare exerciseId if they are unique within the workout log.
+                                                                            // For now, assuming originalIndex is stable for this call.
+        orElse: () => exercisesInSuperset.last // Fallback, though should be found
+    );
+
+
+    final currentExerciseOrder = currentExerciseInSuperset.supersetOrder;
+    final isLastExerciseInSuperset = currentExerciseOrder == exercisesInSuperset.length - 1;
+
+    if (isLastExerciseInSuperset) {
+      // Check if all exercises in the superset have at least this many sets
+      // (or more precisely, if this newly added set makes the counts equal for the current round)
+      final currentSetNumber = currentExerciseInSuperset.sets.length;
+      bool allExercisesCompletedThisRound = true;
+      for (var exInSS in exercisesInSuperset) {
+        if (exInSS.sets.length < currentSetNumber) {
+          allExercisesCompletedThisRound = false;
+          break;
+        }
+      }
+
+      if (allExercisesCompletedThisRound) {
+        debugPrint("Superset round completed for $supersetId. Triggering timer.");
+        final timerKey = _getSupersetTimerKey(supersetId);
+        // Reset timer to its initial value then start, or just start if it's already at initial.
+        // The programmaticStartTimer in EditableRestTimer handles resetting if currentSeconds is 0.
+        timerKey.currentState?.programmaticStartTimer();
+      }
+    }
+  }
+
+
+  void _removeExercise(int exerciseIndex) {
+    if (exerciseIndex < 0 || exerciseIndex >= selectedExercises.length) return;
+
+    final WorkoutExercise removedItem = selectedExercises.removeAt(exerciseIndex);
+    _listKey.currentState?.removeItem(
+      exerciseIndex,
+      (context, animation) => _buildRemovedItemWidget(removedItem, animation),
+      duration: const Duration(milliseconds: 300),
+    );
+    // No need to call setState here as AnimatedList handles the UI update based on its internal state
+    // and the underlying list (selectedExercises) is already modified.
+    // However, if other parts of the UI depend on selectedExercises.length directly (outside AnimatedList),
+    // a setState(() {}) might be needed, but it's generally better to avoid if list itself drives the change.
+  }
+
+  Widget _buildRemovedItemWidget(WorkoutExercise exercise, Animation<double> animation) {
+    // This widget is shown during the removal animation.
+    // It should visually represent the item being removed.
+    // For simplicity, we create a Card similar to how items might look, but styled for removal.
+    return SizeTransition(
+      sizeFactor: animation,
+      child: Opacity( // Optional: fade out
+        opacity: animation.value,
+        child: Card(
+          margin: const EdgeInsets.only(bottom: 16, left: 20, right: 20),
+          color: Colors.red[800]?.withOpacity(0.8), // Indicate removal
+          child: ListTile(
+            title: Text(
+              exercise.exerciseName,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.8),
+                decoration: TextDecoration.lineThrough,
+                decorationColor: Colors.white70,
+              ),
+            ),
+            subtitle: Text(
+              exercise.muscleGroup.toUpperCase(),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                decoration: TextDecoration.lineThrough,
+                decorationColor: Colors.white70,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -645,170 +810,291 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
   }
 
   Widget _buildExercisesList() {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: selectedExercises.length,
-      itemBuilder: (context, exerciseIndex) {
-        final exercise = selectedExercises[exerciseIndex];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            color: Colors.grey[900],
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey[800]!, width: 0.5),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    // Reverted to ListView.builder for stability with current grouping logic.
+    // Group exercises by supersetId
+    final groupedExercises = groupBy(selectedExercises, (WorkoutExercise ex) => ex.supersetId);
+    final List<Widget> exerciseWidgets = [];
+    // final List<String?> processedSupersetIds = []; // This was used for Superset Title, re-adding for clarity
+
+    // Iterate through selectedExercises to maintain original order for non-superset items
+    // and first items of supersets.
+    // Need to keep track of processed superset IDs to avoid rendering a superset group multiple times.
+    List<String> localProcessedSupersetIds = [];
+
+
+    for (int i = 0; i < selectedExercises.length; i++) {
+      final currentExercise = selectedExercises[i];
+      final supersetId = currentExercise.supersetId;
+
+      if (supersetId != null) {
+        if (!localProcessedSupersetIds.contains(supersetId)) {
+          final exercisesInSuperset = groupedExercises[supersetId]!
+            ..sort((a, b) => (a.supersetOrder ?? 0).compareTo(b.supersetOrder ?? 0));
+
+          exerciseWidgets.add(
+            _buildSupersetGroupWidget(exercisesInSuperset, supersetId, localProcessedSupersetIds.length),
+          );
+          localProcessedSupersetIds.add(supersetId);
+        }
+      } else {
+        exerciseWidgets.add(
+          _buildSingleExerciseItem(currentExercise, i),
+        );
+      }
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), // Adjusted padding
+      children: exerciseWidgets,
+    );
+  }
+
+  // Helper for standard animation (No longer used here, kept for potential future use)
+  // Widget _buildAnimatedItem(BuildContext context, Widget child, Animation<double> animation) {
+  //   return SizeTransition(
+  //     sizeFactor: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+  //     child: FadeTransition(
+  //       opacity: CurvedAnimation(parent: animation, curve: Curves.easeIn),
+  //       child: child,
+  //     ),
+  //   );
+  // }
+
+
+  Widget _buildSupersetGroupWidget(List<WorkoutExercise> exercisesInSuperset, String supersetId, int supersetDisplayIndex) {
+    return Card(
+      key: ValueKey('superset_$supersetId'),
+      margin: const EdgeInsets.only(bottom: 16),
+      color: Colors.grey[850],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.green[700]!, width: 1), // Border to indicate group
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _getSupersetTitleWithProgress(exercisesInSuperset, supersetId, supersetDisplayIndex), // Use supersetDisplayIndex
+                      style: TextStyle(color: Colors.green[300], fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.menu, color: Colors.green[300]),
+                    onPressed: () => _showSupersetOptions(supersetId, exercisesInSuperset),
+                  )
+                ],
+              ),
+            ),
+            ...exercisesInSuperset.map((exercise) {
+              int originalIndex = selectedExercises.indexWhere((e) => e.exerciseId == exercise.exerciseId && e.supersetId == exercise.supersetId && e.supersetOrder == exercise.supersetOrder);
+              return _buildExerciseItemContent(exercise, originalIndex, isPartOfSuperset: true);
+            }).toList(),
+            Padding( // Add exercise to superset button
+              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+              child: TextButton.icon(
+                icon: Icon(Icons.add_circle_outline, color: Colors.green[300], size: 20),
+                label: Text('Add Exercise to Superset', style: TextStyle(color: Colors.green[300], fontSize: 14)),
+                onPressed: () => _addExerciseToSupersetDialog(supersetId),
+              ),
+            ),
+            // Timer for the entire superset group
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: EditableRestTimer(
+                key: _getSupersetTimerKey(supersetId), // Use GlobalKey
+                initialSeconds: 90, // Default superset rest, can be configurable
+                onTimeChanged: (newTime) {
+                  // Optionally save this preferred superset rest time to UserSettings or similar
+                  debugPrint('Superset $supersetId rest time changed to $newTime');
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSingleExerciseItem(WorkoutExercise exercise, int exerciseIndex) {
+    // Use a more robust key if exercises can be reordered or have identical IDs temporarily
+    return Container(
+      key: ValueKey('single_${exercise.exerciseId}_${exerciseIndex}'),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.grey[900],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[800]!, width: 0.5),
+      ),
+      child: _buildExerciseItemContent(exercise, exerciseIndex),
+    );
+  }
+
+  // Extracted content of a single exercise item, can be used for both single and superset exercises
+  Widget _buildExerciseItemContent(WorkoutExercise exercise, int exerciseIndex, {bool isPartOfSuperset = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Exercise Header
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Reduced padding
+          child: Row(
             children: [
-              // Exercise Header
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.fitness_center,
+                  color: Colors.green,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
+                    Text(
+                      exercise.exerciseName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
                       ),
-                      child: const Icon(
-                        Icons.fitness_center,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      exercise.muscleGroup.toUpperCase(),
+                      style: const TextStyle(
                         color: Colors.green,
-                        size: 20,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            exercise.exerciseName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            exercise.muscleGroup.toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.green,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.more_vert, color: Colors.grey),
-                      onPressed: () => _showExerciseOptions(exerciseIndex),
                     ),
                   ],
                 ),
               ),
-
-              // Rest Timer
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: EditableRestTimer(
-                  initialSeconds: 60,
-                  onTimeChanged: (seconds) {
-                    debugPrint('Rest time changed to: $seconds seconds');
-                  },
-                ),
-              ),
-
-              // Sets
-              if (exercise.sets.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 60),
-                      const Expanded(
-                        child: Text(
-                          'WEIGHT (KG)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'REPS',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 48),
-                    ],
-                  ),
-                ),
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: exercise.sets.length,
-                  itemBuilder: (context, setIndex) {
-                    final set = exercise.sets[setIndex];
-                    return _buildSetRow(exerciseIndex, setIndex, set);
-                  },
-                ),
-              ],
-
-              // Add Set Button
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.add, color: Colors.green),
-                    label: const Text(
-                      'Add Set',
-                      style: TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.green),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(22),
-                      ),
-                    ),
-                    onPressed: () => _addSet(exerciseIndex),
-                  ),
-                ),
+              IconButton(
+                icon: const Icon(Icons.more_vert, color: Colors.grey),
+                onPressed: () => _showExerciseOptions(exerciseIndex), // exerciseIndex here is the global index
               ),
             ],
           ),
-        );
-      },
+        ),
+
+        // Conditionally show Rest Timer for single exercises only
+        if (!isPartOfSuperset)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: EditableRestTimer(
+              key: ValueKey('timer_${exercise.exerciseId}_$exerciseIndex'), // Ensure unique key if list rebuilds
+              initialSeconds: exercise.restTimeInSeconds ?? 60,
+              onTimeChanged: (seconds) {
+                debugPrint('Rest time for ${exercise.exerciseName} changed to: $seconds seconds');
+                 setState(() {
+                  selectedExercises[exerciseIndex].restTimeInSeconds = seconds;
+                });
+              },
+            ),
+          ),
+
+        // Sets
+        if (exercise.sets.isNotEmpty) ...[
+          const SizedBox(height: 10), // Reduced spacing
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16), // Reduced padding
+            child: Row(
+              children: [
+                const SizedBox(width: 52), // Adjusted for new padding and set number width
+                Expanded(
+                  child: Text(
+                    'WEIGHT (KG)',
+                    style: TextStyle( // Slightly smaller font
+                      fontSize: 11,
+                      color: Colors.grey[400],
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'REPS',
+                    style: TextStyle( // Slightly smaller font
+                      fontSize: 11,
+                      color: Colors.grey[400],
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 48), // For delete icon alignment
+              ],
+            ),
+          ),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: exercise.sets.length,
+            itemBuilder: (context, setIndex) {
+              final set = exercise.sets[setIndex];
+              // Pass exerciseIndex (global index) to _buildSetRow
+              return _buildSetRow(exerciseIndex, setIndex, set);
+            },
+          ),
+        ],
+
+        // Add Set Button
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.add, color: Colors.green),
+              label: const Text(
+                'Add Set',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.green),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(22),
+                ),
+              ),
+              onPressed: () => _addSet(exerciseIndex), // exerciseIndex is global index
+            ),
+          ),
+        ),
+      ],
     );
   }
 
+
   Widget _buildSetRow(int exerciseIndex, int setIndex, WorkoutSet set) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), // Reduced padding
       child: Row(
         children: [
           // Set Number
           Container(
-            width: 40,
-            height: 40,
+            width: 36, // Reduced size
+            height: 36, // Reduced size
             decoration: BoxDecoration(
               color:
                   set.isHardSet
@@ -826,12 +1112,12 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12), // Reduced spacing
 
           // Weight Input
           Expanded(
             child: Container(
-              height: 44,
+              height: 40, // Reduced height
               decoration: BoxDecoration(
                 color: Colors.grey[800],
                 borderRadius: BorderRadius.circular(12),
@@ -842,14 +1128,20 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
                 ),
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true), // Allow decimal for weight
                 textAlign: TextAlign.center,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   border: InputBorder.none,
-                  hintText: '0',
-                  hintStyle: TextStyle(color: Colors.grey),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                  hintText: '0.0',
+                  hintStyle: TextStyle(color: Colors.grey[600]),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Enter weight';
+                  final weight = double.tryParse(value);
+                  if (weight == null || weight <= 0) return 'Invalid >0';
+                  return null;
+                },
                 onChanged: (value) {
                   _updateSet(
                     exerciseIndex,
@@ -878,12 +1170,18 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
                 ),
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   border: InputBorder.none,
                   hintText: '0',
-                  hintStyle: TextStyle(color: Colors.grey),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                  hintStyle: TextStyle(color: Colors.grey[600]),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Enter reps';
+                  final reps = int.tryParse(value);
+                  if (reps == null || reps <= 0) return 'Invalid >0';
+                  return null;
+                },
                 onChanged: (value) {
                   _updateSet(
                     exerciseIndex,
@@ -912,44 +1210,265 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
   }
 
   void _showExerciseOptions(int exerciseIndex) {
+    final exercise = selectedExercises[exerciseIndex];
+    final bool isPartOfSuperset = exercise.supersetId != null;
+    // Can start a superset if this exercise is not in one, AND there's at least one other non-superset exercise.
+    final bool canStartSuperset = !isPartOfSuperset && selectedExercises.any((ex) => ex.supersetId == null && ex.exerciseId != exercise.exerciseId);
+
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder:
-          (context) => Container(
-            decoration: const BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container( // Handle for dragging
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey[600],
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[600],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text(
-                    'Remove Exercise',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _removeExercise(exerciseIndex);
-                  },
-                ),
-                const SizedBox(height: 20),
-              ],
+            if (!isPartOfSuperset && canStartSuperset)
+              ListTile(
+                leading: Icon(Icons.link, color: Colors.green[300]),
+                title: Text('Create Superset with...', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _promptToCreateSuperset(exerciseIndex);
+                },
+              ),
+            if (!isPartOfSuperset && !canStartSuperset && selectedExercises.length >= 1) // Allow making a single exercise a superset
+               ListTile(
+                leading: Icon(Icons.link, color: Colors.green[300]),
+                title: Text('Make this a Superset', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() {
+                    final newSupersetId = uuid.v4();
+                    selectedExercises[exerciseIndex].supersetId = newSupersetId;
+                    selectedExercises[exerciseIndex].supersetOrder = 0;
+                    selectedExercises = List.from(selectedExercises);
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${exercise.exerciseName} is now a new superset. Add more exercises to it via its menu.')),
+                  );
+                },
+              ),
+            if (isPartOfSuperset)
+              ListTile(
+                leading: Icon(Icons.link_off, color: Colors.orange[300]),
+                title: Text('Remove from Superset', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _removeFromSuperset(exerciseIndex);
+                },
+              ),
+             ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text(
+                'Remove Exercise',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _removeExercise(exerciseIndex);
+              },
             ),
-          ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
     );
   }
+
+  void _promptToCreateSuperset(int exerciseIndex) async {
+    final currentExercise = selectedExercises[exerciseIndex];
+    // Filter for other exercises not already in a superset and not the current one
+    final availableExercises = selectedExercises
+        .where((ex) => ex.supersetId == null && ex.exerciseId != currentExercise.exerciseId)
+        .toList();
+
+    // This case should be covered by the logic in _showExerciseOptions enabling "Make this a Superset"
+    // if (availableExercises.isEmpty) {
+    //    setState(() {
+    //     final newSupersetId = uuid.v4();
+    //     selectedExercises[exerciseIndex].supersetId = newSupersetId;
+    //     selectedExercises[exerciseIndex].supersetOrder = 0;
+    //   });
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //      SnackBar(content: Text('${currentExercise.exerciseName} is now a superset. Add more exercises to it.')),
+    //   );
+    //   return;
+    // }
+
+    final WorkoutExercise? selectedPartner = await showDialog<WorkoutExercise>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: Text('Select exercise to superset with ${currentExercise.exerciseName}', style: TextStyle(color: Colors.white)),
+          content: Container(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: availableExercises.length,
+              itemBuilder: (BuildContext context, int index) {
+                return ListTile(
+                  title: Text(availableExercises[index].exerciseName, style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.of(context).pop(availableExercises[index]);
+                  },
+                );
+              },
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel', style: TextStyle(color: Colors.green[300])),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    if (selectedPartner != null) {
+      setState(() {
+        final newSupersetId = uuid.v4();
+        selectedExercises[exerciseIndex].supersetId = newSupersetId;
+        selectedExercises[exerciseIndex].supersetOrder = 0;
+
+        final partnerIndex = selectedExercises.indexWhere((ex) => ex.exerciseId == selectedPartner.exerciseId && ex.supersetId == null);
+        if (partnerIndex != -1) {
+          selectedExercises[partnerIndex].supersetId = newSupersetId;
+          selectedExercises[partnerIndex].supersetOrder = 1;
+        }
+        // Force a refresh of the list UI
+        selectedExercises = List.from(selectedExercises);
+      });
+    }
+  }
+
+  void _addExerciseToSupersetDialog(String supersetId) async {
+    final exerciseProvider = Provider.of<ExerciseProvider>(context, listen: false);
+    final Exercise? chosenExercise = await showModalBottomSheet<Exercise>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: ExerciseSelector(exercises: exerciseProvider.exercises, title: "Add to Superset"),
+      ),
+    );
+
+    if (chosenExercise != null && mounted) {
+      setState(() {
+        final exercisesInThisSuperset = selectedExercises.where((ex) => ex.supersetId == supersetId).toList();
+        selectedExercises.add(
+          WorkoutExercise(
+            exerciseId: chosenExercise.id,
+            exerciseName: chosenExercise.name,
+            muscleGroup: chosenExercise.muscleGroup,
+            sets: [],
+            supersetId: supersetId,
+            supersetOrder: exercisesInThisSuperset.length, // Append to the end
+          ),
+        );
+         selectedExercises = List.from(selectedExercises); // Refresh list
+      });
+    }
+  }
+
+  void _removeFromSuperset(int exerciseIndex) {
+    setState(() {
+      final exercise = selectedExercises[exerciseIndex];
+      final oldSupersetId = exercise.supersetId;
+      exercise.supersetId = null;
+      exercise.supersetOrder = null;
+
+      // Re-order other exercises in the same old superset if any
+      if (oldSupersetId != null) {
+        final remainingInSuperset = selectedExercises
+            .where((ex) => ex.supersetId == oldSupersetId)
+            .toList()
+          ..sort((a, b) => (a.supersetOrder ?? 0).compareTo(b.supersetOrder ?? 0));
+
+        for(int i=0; i < remainingInSuperset.length; i++){
+          remainingInSuperset[i].supersetOrder = i;
+        }
+        // If only one exercise remains in the superset, it's no longer a superset
+        if(remainingInSuperset.length == 1){
+          remainingInSuperset.first.supersetId = null;
+          remainingInSuperset.first.supersetOrder = null;
+        }
+      }
+       selectedExercises = List.from(selectedExercises); // Refresh list
+    });
+  }
+
+  void _showSupersetOptions(String supersetId, List<WorkoutExercise> exercisesInSuperset) {
+     showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+         decoration: const BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+           children: [
+             Container(width: 40, height: 4, margin: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2),),),
+            ListTile(
+              leading: Icon(Icons.add_circle_outline, color: Colors.green[300]),
+              title: Text('Add Exercise to this Superset', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                _addExerciseToSupersetDialog(supersetId);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.link_off, color: Colors.orange[300]),
+              title: Text('Ungroup Superset', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                _ungroupSuperset(supersetId);
+              },
+            ),
+            // Add more options like "Reorder exercises" here
+            const SizedBox(height: 20),
+          ],
+        ),
+      )
+    );
+  }
+
+  void _ungroupSuperset(String supersetId) {
+    setState(() {
+      for (var ex in selectedExercises) {
+        if (ex.supersetId == supersetId) {
+          ex.supersetId = null;
+          ex.supersetOrder = null;
+        }
+      }
+      selectedExercises = List.from(selectedExercises); // Refresh list
+    });
+  }
+
 
   bool _hasUnsavedChanges() {
     if (_existingWorkout == null) {

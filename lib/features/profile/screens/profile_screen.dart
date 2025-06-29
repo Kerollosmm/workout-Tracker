@@ -8,6 +8,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/providers/workout_provider.dart';
 import '../../../config/themes/app_theme.dart';
+import '../../../core/services/excel_export_service.dart';
+import '../../../core/models/workout.dart';
+import '../../../shared/widgets/custom_action_button.dart';
+import '../../../shared/widgets/section_card.dart'; // Import the SectionCard widget
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -235,19 +239,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildUserInfo(UserProvider userProvider) {
-    return Card(
-      color: AppTheme.cardColor,
-      margin: const EdgeInsets.all(AppTheme.spacing_m),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.spacing_l),
-        child: Column(
-          children: [
-            _buildProfilePhoto(userProvider),
-            const SizedBox(height: AppTheme.spacing_l),
+    return SectionCard( // Use SectionCard
+      margin: const EdgeInsets.all(AppTheme.spacing_m), // Keep specific margin for this card
+      // title: null, // No title for this specific card
+      child: Column(
+        children: [
+          _buildProfilePhoto(userProvider),
+          const SizedBox(height: AppTheme.spacing_l),
             _buildEditableField(
               'Name',
               userProvider.user.name.isNotEmpty
@@ -267,7 +265,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -338,29 +335,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildStatsCards(UserProvider userProvider) {
-    return Card(
-      color: AppTheme.cardColor,
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacing_m,
-        vertical: AppTheme.spacing_s,
-      ),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.spacing_l),
+    return SectionCard( // Use SectionCard
+      title: 'Body Stats',
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          // crossAxisAlignment: CrossAxisAlignment.start, // Already handled by SectionCard
           children: [
-            Text(
-              'Body Stats',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: AppTheme.spacing_m),
+            // Text( // Title is now handled by SectionCard
+            //   'Body Stats',
+            //   style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            //     fontWeight: FontWeight.w600,
+            //     color: Theme.of(context).colorScheme.primary,
+            //   ),
+            // ),
+            // const SizedBox(height: AppTheme.spacing_m), // Spacing handled by SectionCard
             Row(
               children: [
                 Expanded(
@@ -408,7 +395,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -458,29 +444,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildGoalsSection(UserProvider userProvider) {
-    return Card(
-      color: AppTheme.cardColor,
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacing_m,
-        vertical: AppTheme.spacing_s,
-      ),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.spacing_l),
+    return SectionCard( // Use SectionCard
+      title: 'Fitness Goals',
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          // crossAxisAlignment: CrossAxisAlignment.start, // Already handled by SectionCard
           children: [
-            Text(
-              'Fitness Goals',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: AppTheme.spacing_s),
+            // Text( // Title is now handled by SectionCard
+            //   'Fitness Goals',
+            //   style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            //     fontWeight: FontWeight.w600,
+            //     color: Theme.of(context).colorScheme.primary,
+            //   ),
+            // ),
+            // const SizedBox(height: AppTheme.spacing_s), // Spacing handled by SectionCard
             ListTile(
               leading: const Icon(
                 Icons.flag_outlined,
@@ -545,7 +521,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -553,42 +528,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
     UserProvider userProvider,
     WorkoutProvider workoutProvider,
   ) {
-    return Card(
-      color: AppTheme.cardColor,
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacing_m,
-        vertical: AppTheme.spacing_s,
-      ),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius_m),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.spacing_l),
+    return SectionCard( // Use SectionCard
+      title: 'Actions',
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          // crossAxisAlignment: CrossAxisAlignment.start, // Already handled by SectionCard
           children: [
-            Text(
-              'Actions',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: AppTheme.spacing_m),
-            _buildActionButton(
+            // Text( // Title is now handled by SectionCard
+            //   'Actions',
+            //   style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            //     fontWeight: FontWeight.w600,
+            //     color: Theme.of(context).colorScheme.primary,
+            //   ),
+            // ),
+            // const SizedBox(height: AppTheme.spacing_m), // Spacing handled by SectionCard
+            CustomActionButton(
               icon: Icons.download_outlined,
               label: 'Export Workout Data',
               onPressed: () => _exportWorkoutData(workoutProvider),
             ),
             const SizedBox(height: AppTheme.spacing_m),
-            _buildActionButton(
+            CustomActionButton(
               icon: Icons.share_outlined,
               label: 'Share App',
               onPressed: () => _shareApp(),
             ),
             const SizedBox(height: AppTheme.spacing_m),
-            _buildActionButton(
+            CustomActionButton(
               icon: Icons.settings_outlined,
               label: 'Settings',
               onPressed: () {
@@ -596,26 +561,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
               },
             ),
             const SizedBox(height: AppTheme.spacing_m),
-            _buildActionButton(
+            CustomActionButton(
               icon: Icons.privacy_tip_outlined,
               label: 'View Privacy Policy',
               onPressed: () => _launchURL('https://yourprivacypolicyurl.com'),
             ),
             const SizedBox(height: AppTheme.spacing_m),
-            _buildActionButton(
+            CustomActionButton(
               icon: Icons.logout,
               label: 'Log Out',
               onPressed: _logoutUser,
             ),
           ],
         ),
-      ),
     );
   }
 
   Future<void> _exportWorkoutData(WorkoutProvider workoutProvider) async {
+    // Get the list of workouts from the provider
+    final List<Workout> workoutsToExport = workoutProvider.workouts;
+
+    if (workoutsToExport.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No workout data to export.')),
+      );
+      return;
+    }
+
+    // Instantiate the service and call the export method
+    final ExcelExportService excelService = ExcelExportService();
     try {
-      final filePath = await workoutProvider.exportWorkoutDataToExcel();
+      final String? filePath = await excelService.exportWorkouts(workoutsToExport);
+
+      if (!mounted) return;
+
       if (filePath != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -775,16 +755,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     value,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w500,
+                      color: AppTheme.primaryTextColor, // Ensure value text is primary (e.g. white)
                     ),
                   ),
                 ],
               ),
             ),
             const Icon(
-              Icons.edit,
+              Icons.edit_outlined, // Changed to outlined version for iOS feel
               color: AppTheme.secondaryTextColor,
-              size: 16,
-            ), // Updated 2025-05-29
+              size: 20, // Slightly larger for easier tap
+            ),
           ],
         ),
       ),
@@ -812,32 +793,5 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    return ElevatedButton.icon(
-      icon: Icon(icon, size: 20 /* color is set by foregroundColor */),
-      label: Text(
-        label /* style is merged from textStyle and foregroundColor */,
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppTheme.surfaceColor, // Subtle background
-        foregroundColor:
-            AppTheme.accentTextColor, // Clear action text/icon color
-        minimumSize: const Size(double.infinity, 48), // Already const
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.borderRadius_s),
-        ),
-        padding: const EdgeInsets.symmetric(
-          // Already const
-          vertical: AppTheme.spacing_s,
-          horizontal: AppTheme.spacing_m,
-        ),
-        textStyle: Theme.of(context).textTheme.labelLarge,
-      ),
-      onPressed: onPressed,
-    );
-  }
+// _buildActionButton method removed as it's replaced by CustomActionButton widget.
 }

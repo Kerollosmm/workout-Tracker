@@ -4,17 +4,24 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:excel/excel.dart' as excel_package;
+// import 'package:excel/excel.dart' as excel_package; // Removed: Excel export logic moved
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
 // removed share_plus import as it's now used in profile_screen.dart
 import 'package:uuid/uuid.dart';
-import 'package:intl/intl.dart';
+// import 'package:intl/intl.dart'; // Removed: Not used directly by UserProvider after export removal
 import '../models/user.dart';
-import '../providers/workout_provider.dart';
-import 'package:file_picker/file_picker.dart';
+import '../providers/workout_provider.dart'; // Keep for shouldSuggestWeightIncrease
+// import 'package:file_picker/file_picker.dart'; // Removed: File picker for Excel export moved
 
 class UserProvider with ChangeNotifier {
+  bool _isLoading = true;
+  bool _isSignedIn = false;
+
+  bool get isLoading => _isLoading;
+  bool get isSignedIn => _isSignedIn;
+
+  /// The current user data.
   User _user = User(
     id: '1',
     name: 'User',
@@ -29,8 +36,11 @@ class UserProvider with ChangeNotifier {
   User get user => _user;
 
   Future<void> init() async {
+    // No need to set _isLoading = true here as it defaults to true
+    // and notifyListeners() would be too early before runApp.
     await _loadUserDataFromPreferences();
-    notifyListeners();
+    _isLoading = false;
+    notifyListeners(); // Notify after all loading and state changes are done
   }
 
   Future<void> _loadUserDataFromPreferences() async {
@@ -64,10 +74,47 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> isUserSignedIn() async {
+  Future<bool> isUserSignedIn() async { // This can be removed or kept for other specific checks if needed
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('user_signed_in') ?? false;
+    _isSignedIn = prefs.getBool('user_signed_in') ?? false; // Update internal state
+    return _isSignedIn;
   }
+   // In _loadUserDataFromPreferences, after loading other user data:
+  Future<void> _loadUserDataFromPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // ... (loading name, email, etc.)
+      final name = prefs.getString('user_name') ?? 'User';
+      final email = prefs.getString('user_email') ?? 'user@example.com';
+      final height = prefs.getDouble('user_height') ?? 175.0;
+      final weight = prefs.getDouble('user_weight') ?? 70.0;
+      final fitnessGoal =
+          prefs.getString('user_fitness_goal') ?? 'Build Muscle';
+      final activityLevel =
+          prefs.getString('user_activity_level') ?? 'Moderate';
+      final photoUrl = prefs.getString('user_photo_url') ?? '';
+      final userId = prefs.getString('user_id') ?? '1';
+
+
+      _user = User(
+        id: userId,
+        name: name,
+        email: email,
+        photoUrl: photoUrl,
+        height: height,
+        weight: weight,
+        fitnessGoal: fitnessGoal,
+        activityLevel: activityLevel,
+      );
+      _isSignedIn = prefs.getBool('user_signed_in') ?? false; // Set the synchronous flag
+    } catch (e) {
+      debugPrint('Error loading user data: $e');
+      _isSignedIn = false; // Ensure it's false on error
+      // Keep default user if loading fails
+    }
+  }
+
 
   // Added 2025-05-29: Method to simulate user sign-in
   Future<void> signInUser(String name, String email) async {
@@ -83,6 +130,7 @@ class UserProvider with ChangeNotifier {
     await prefs.setString('user_activity_level', _user.activityLevel);
     await prefs.setString('user_photo_url', ''); // Clear photo on new sign-in
     await prefs.setBool('user_signed_in', true);
+    _isSignedIn = true; // Update internal state
     notifyListeners();
   }
 
@@ -90,6 +138,7 @@ class UserProvider with ChangeNotifier {
   Future<void> logoutUser() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user_id');
+    // ... (remove other user details)
     await prefs.remove('user_name');
     await prefs.remove('user_email');
     await prefs.remove('user_photo_url');
@@ -98,6 +147,7 @@ class UserProvider with ChangeNotifier {
     await prefs.remove('user_fitness_goal');
     await prefs.remove('user_activity_level');
     await prefs.setBool('user_signed_in', false);
+    _isSignedIn = false; // Update internal state
 
     // Reset user object to default state
     _user = User(
@@ -331,155 +381,9 @@ class UserProvider with ChangeNotifier {
     return false;
   }
 
-  // Export workout data to Excel
-  Future<String?> exportWorkoutDataToExcel(
-    WorkoutProvider workoutProvider,
-  ) async {
-    try {
-      // Use file_picker to get the desired save location
-      String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
-
-      if (selectedDirectory == null) {
-        // User canceled the picker
-        return null;
-      }
-
-      final excel = excel_package.Excel.createExcel();
-      final excel_package.Sheet sheet = excel['Workout Data'];
-
-      // Add headers
-      final headers = [
-        'Date',
-        'Workout Name',
-        'Exercise',
-        'Sets',
-        'Reps',
-        'Weight (kg)',
-        'Notes',
-      ];
-
-      for (var i = 0; i < headers.length; i++) {
-        final String headerText = headers[i];
-        final excel_package.CellValue cellValue = excel_package.TextCellValue(
-          headerText,
-        );
-        sheet
-            .cell(
-              excel_package.CellIndex.indexByColumnRow(
-                columnIndex: i,
-                rowIndex: 0,
-              ),
-            )
-            .value = cellValue as excel_package.CellValue?;
-      }
-
-      // Add workout data
-      var rowIndex = 1;
-      final workouts = workoutProvider.workouts;
-
-      for (final workout in workouts) {
-        final workoutDate = DateFormat('yyyy-MM-dd').format(workout.date);
-
-        for (final exercise in workout.exercises) {
-          for (var setIndex = 0; setIndex < exercise.sets.length; setIndex++) {
-            final workoutSet = exercise.sets[setIndex];
-
-            // Date
-            sheet
-                .cell(
-                  excel_package.CellIndex.indexByColumnRow(
-                    columnIndex: 0,
-                    rowIndex: rowIndex,
-                  ),
-                )
-                .value = excel_package.TextCellValue(workoutDate);
-
-            // Workout Name
-            sheet
-                .cell(
-                  excel_package.CellIndex.indexByColumnRow(
-                    columnIndex: 1,
-                    rowIndex: rowIndex,
-                  ),
-                )
-                .value = excel_package.TextCellValue(
-              workout.workoutName ?? "no data found ",
-            );
-
-            // Exercise Name
-            sheet
-                .cell(
-                  excel_package.CellIndex.indexByColumnRow(
-                    columnIndex: 2,
-                    rowIndex: rowIndex,
-                  ),
-                )
-                .value = excel_package.TextCellValue(exercise.exerciseName);
-
-            // Set Number
-            sheet
-                .cell(
-                  excel_package.CellIndex.indexByColumnRow(
-                    columnIndex: 3,
-                    rowIndex: rowIndex,
-                  ),
-                )
-                .value = excel_package.IntCellValue(setIndex + 1);
-
-            // Reps
-            sheet
-                .cell(
-                  excel_package.CellIndex.indexByColumnRow(
-                    columnIndex: 4,
-                    rowIndex: rowIndex,
-                  ),
-                )
-                .value = excel_package.IntCellValue(workoutSet.reps);
-
-            // Weight
-            sheet
-                .cell(
-                  excel_package.CellIndex.indexByColumnRow(
-                    columnIndex: 5,
-                    rowIndex: rowIndex,
-                  ),
-                )
-                .value = excel_package.DoubleCellValue(workoutSet.weight);
-
-            // Notes
-            sheet
-                .cell(
-                  excel_package.CellIndex.indexByColumnRow(
-                    columnIndex: 6,
-                    rowIndex: rowIndex,
-                  ),
-                )
-                .value = excel_package.TextCellValue(workoutSet.notes ?? '');
-
-            rowIndex++;
-          }
-        }
-      }
-
-      // Save the Excel file to the selected directory
-      final filePath = path.join(
-        selectedDirectory,
-        'workout_data_${DateTime.now().millisecondsSinceEpoch}.xlsx',
-      );
-
-      final fileBytes = excel.encode();
-      if (fileBytes != null) {
-        final file = File(filePath);
-        await file.writeAsBytes(fileBytes);
-
-        // Return the file path
-        return filePath;
-      } else {
-        throw Exception('Failed to encode Excel file');
-      }
-    } catch (e) {
-      debugPrint('Error exporting workout data: $e');
-      rethrow;
-    }
-  }
+  // Note: The exportWorkoutDataToExcel method has been removed.
+  // This functionality was specific to exporting *workout data* and was duplicated
+  // from WorkoutProvider. It's now centralized in ExcelExportService.
+  // If UserProvider needed to export user-specific data (not workout logs),
+  // a separate method or service integration would be appropriate here.
 }
